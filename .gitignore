@@ -1,0 +1,9 @@
+bioloid3
+uCee-py
+roz
+micropy-to-upload
+
+*.sw?
+*.pyc
+*~
+*.vim
