@@ -18,16 +18,16 @@ class Wrapper():
 
     def __init__(self,
                  timestep=20, # ms
-                 ang_dir=0,
+                 ang_dir=0.0,
                  foot_h_max=FH,
                  time_down_frac=ALL_FEET_DOWN_TIME_FRAC,
                  #half_loopLength=,
                  transition_frac=TRANSITION_FRAC,
                  height_frac=FH_FRAC
             ):
-        self.timestep = timestep
-        self.ang_dir = ang_dir
-        self.foot_h_max = foot_h_max
+        self.timestep = timestep # ms
+        self.ang_dir = ang_dir # degrees
+        self.foot_h_max = foot_h_max # mm
         self.time_down_frac = time_down_frac
         #self.half_loopLength = half_loopLength
         self.transition_frac = transition_frac
@@ -128,10 +128,12 @@ if __name__ == "__main__":
                         help="Number of gait loops to simulate")
     parser.add_argument("-s", "--servos", action="store", default=None, nargs="*",
                         help="Servo IDs to plot (as space delimited list of args)")
+    parser.add_argument("-w", "--walkdir", action="store", default=0.0, type=float,
+                        help="Servo IDs to plot (as space delimited list of args)")
 
     args = parser.parse_args()
 
-    run = Wrapper()
+    run = Wrapper(ang_dir=args.walkdir)
     run.walk_angle(repeat_count=args.repeat)
     #mypoints = [x[0::4] for x in run.points]
     mypoints = run.points

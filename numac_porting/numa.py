@@ -6,7 +6,7 @@ import utime
 from pyb import Pin
 
 import ax
-from helpers import clamp
+from helpers import clamp, speedPhaseFix
 from init import myServoReturnLevels, myServoSpeeds, initServoLims
 from commander import CommanderRx
 from poses import g8Stand, g8FeetDown, g8Flop, g8Crouch
@@ -71,10 +71,10 @@ class NumaMain(object):
         self.crx = CommanderRx()
         self.cmdrAlive = 0
 
-        self.leg_ids = [11, 12, 13, 14, #servo11, servo21, servo31, servo41,
-                        21, 22, 23, 24, #servo12, servo13, servo14, servo22,
-                        31, 32, 33, 34, #servo23, servo24, servo32, servo33,
-                        41, 42, 43, 44] #servo34, servo42, servo43, servo44]
+        self.leg_ids = [11, 21, 31, 41,
+                        12, 22, 32, 42,
+                        13, 23, 33, 43,
+                        14, 24, 34, 44]
         self.turret_ids = [51, 52] # pan, tilt
         self.all_ids = self.leg_ids + self.turret_ids
 
@@ -241,12 +241,11 @@ class NumaMain(object):
         #    fastturret = False
 
         # TODO Test this!
-        # Guessing: We go into the g8Crouch pose, then we disable the torque to the 2nd servo in each leg? Doesn't match code here
-        # or my old C code...
+        # Guessing: We go into the g8Crouch pose, then we reenable the torque to the 2nd servo in each leg afterwards
         if self.panicbutton:
             self.flopCnt += 1
             if self.flopCnt >= 3:
-                g8Crouch(self.axbus, self.leg_ids) # This disables torque
+                g8Crouch(self.axbus, self.leg_ids) # This disables torque to second servo in each leg
                 self.panic = True
                 print("Howdydoo? %d", self.flopCnt)
                 self.flopCnt = 0
@@ -256,7 +255,7 @@ class NumaMain(object):
                 self.standing = 0
 
                 # Enable torque second servo of each leg
-                self.axbus.sync_write(self.leg_ids[1::4], ax.TORQUE_ENABLE, [struct.pack('<H', 1) for _ in range(4)])
+                self.axbus.sync_write(self.leg_ids[4:8], ax.TORQUE_ENABLE, [struct.pack('<H', 1) for _ in range(4)])
 
             self.panicbutton = False # TODO not needed?
 
@@ -281,7 +280,6 @@ class NumaMain(object):
             self.turn_loops -= 1
 
         if self.turnleft or self.turnright:
-            # LED_off(&statusLED)
             #if PRINT_DEBUG: print("Turn!  %u\t%u", self.turnright, self.turnleft)
 
             if self.turn_loops < 1:
@@ -299,9 +297,11 @@ class NumaMain(object):
                 self.turn_dir = -1 # Reverse turn dir here
 
             self.standing = 0
+            self.turnright = False
+            self.turnleft = False
 
         elif self.turn_loops > 0:
-            self.turn_loops = self.turn_loops # TODO wtf
+            pass
 
         # Else, walking, possibly
         else:
@@ -312,8 +312,8 @@ class NumaMain(object):
 
             # walkSPD is an integer value; 0 or positive
             walkSPD = sqrt(self.crx.walkv * self.crx.walkv + self.crx.walkh * self.crx.walkh)
-            #walkSPD = interpolate(walkSPD, 0,102, 0,6)
-            walkSPD = int(0 + (6 - 0) * (walkSPD - 0) / (102 - 0)) # see above
+            walkSPD = int(0 + (6 - 0) * (walkSPD - 0) / (102 - 0)) # interpolate(walkSPD, 0,102, 0,6)
+            print("WalkDIR:", walkDIR, "WalkSPD:", walkSPD)
 
             # Not walking, and not turning, so stand!
             if walkSPD == 0 and self.turn_loops == 0:
@@ -323,7 +323,6 @@ class NumaMain(object):
                     self.standing += 1
 
             elif walkSPD > 0:
-                # Debug info
                 if PRINT_DEBUG:
                     print("walk! %f ", (walkDIR * 180.0 / pi))
 
@@ -343,7 +342,7 @@ class NumaMain(object):
                 newLoopLength = self.loopLengthList[walkSPD - 1]
                 if newLoopLength != self.loopLength:  # So we can check for change
                     # TODO spdChngOffset is cumulative? note speedPhaseFix both incr and decrs
-                    self.spdChngOffset += self.speedPhaseFix(loopStart, self.loopLength, newLoopLength)
+                    self.spdChngOffset += speedPhaseFix(loopStart, self.loopLength, newLoopLength)
                     self.loopLength = newLoopLength
                     #self.spdChngOffset = spdChngOffset%loopLength
                 self.walk = True
@@ -387,15 +386,12 @@ class NumaMain(object):
             #print("%d\t%d\t%d\t%d",s12pos,s42pos, footH13,footH24)
 
         elif self.standing > 0 and self.standing <= 5:
-            # g8Stand(self.axbus, self.leg_ids)
+            # or g8Stand?
             g8FeetDown(self.axbus, self.leg_ids)
 
         elif self.turn_loops > 0 and self.walk == True:
-            # g8Stand(self.axbus, self.leg_ids)
+            # or g8Stand?
             g8FeetDown(self.axbus, self.leg_ids)
-
-        self.turnright = False
-        self.turnleft = False
 
 
         # Move all servos
@@ -410,19 +406,15 @@ class NumaMain(object):
         # TODO
         #if PRINT_IR_RANGE:
         #    IRcnt += 1
-        #
         #    if IRcnt >= 8:
-        #
         #        distanceRead(distance)
         #        print("L")
         #        distanceDump(distance)
         #        print("\t")
-        #
         #        distanceRead(distance2)
         #        print("R")
         #        distanceDump(distance2)
         #        printCRLF()
-        #
         #    IRcnt = 0
 
 #        if PRINT_DEBUG and walk == True:
@@ -432,19 +424,9 @@ class NumaMain(object):
         #    print("")
 
         return PROG_LOOP_TIME #45000 #micro seconds
-        #return 0
     #////////////////
     #/ End of Main Loop
     #////////////////
-
-
-    #TICK_COUNT speedPhaseFix(TICK_COUNT clocktime, TICK_COUNT loopLenOld, TICK_COUNT loopLen)
-    def speedPhaseFix(self, clocktime, loopLenOld, loopLen):
-        # NOTE: Return value can be negative
-        #print(clocktime, loopLenOld, loopLen)
-        #time_ms = clocktime/1000
-        return (((clocktime/1000) % loopLenOld) / loopLenOld -
-            ((clocktime/1000) % loopLen) / loopLen * loopLen)
 
 
     def set_new_heading(self, new_dir):
@@ -552,7 +534,7 @@ class NumaMain(object):
         self.tilt_pos = clamp(self.tilt_pos + tilt_add, self.servo52Min, self.servo52Max)
 
         if out:
-            print(out)
+            print("Output:", out)
         return
 
 
@@ -562,7 +544,7 @@ class NumaMain(object):
             if loopStart > self.loader_timeout_end:
                 self.loader_timeout_mode = 0
         else:
-            print(LOADER_SPEED_ON,  self.ammoMotor.cs_adc.read())
+            #print(LOADER_SPEED_ON,  self.ammoMotor.cs_adc.read())
             self.ammoMotor.direct_set_speed(LOADER_SPEED_ON)
 
         # TODO port this; how many bits is the ADC? Check the voltage limits
