@@ -1,8 +1,8 @@
 from math import sqrt, atan, atan2
-#Example: 
+#Example:
 #        vector2d_AngleRadians(v23, v12vert)
 
-def norm(a)
+def norm(a):
     alen = sqrt(a[0] * a[0] + a[1] * a[1])
     anorm = [_ / alen for _ in a]
     return anorm
@@ -12,7 +12,4 @@ def vector2d_AngleRadians(a, b):
     anorm = norm(a)
     bnorm = norm(b)
 
-    atan2(b[0] - a[0]
-    
-
-
+    atan2(b[0] - a[0])

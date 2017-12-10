@@ -24,8 +24,10 @@ class CommanderRx(object):
         self.checksum = 0
         self.pkt_bytes = bytearray(7)
         # these range from -128 to 127 once set below
-        self.lookv = 0
+        # left joystick
+        self.lookv = 0 
         self.lookh = 0
+        # right joystick
         self.walkv = 0
         self.walkh = 0
         self.button = 0

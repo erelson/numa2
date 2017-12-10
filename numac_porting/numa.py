@@ -1,124 +1,75 @@
-#include "hardware.h"
-#include <math.h>
-#include "Maths/Vector2D.h"
-#include <Gait/GaitRunner.h>
-
-#include "HeaderDefs.h"
-
-#include "servoPosConsts.h"
-#include "timingConsts.h"
-
-#include "Commander.h"
-
-#include "gait2.h"
-##endif
-
-from math import pi, sqrt
+# NOTE This is the correct, up to date one I think
+from math import pi, sqrt, atan2
 import struct
 
 import utime
+from pyb import Pin
 
 import ax
 from helpers import clamp
-from init import initTrig, myServoReturnLevels, myServoSpeeds, initServoLims
+from init import myServoReturnLevels, myServoSpeeds, initServoLims
 from commander import CommanderRx
-
-#short turn_loops
-#short turn_dir
-#int8_t standing
-
-#define True 1
-#define False 0
-
-##define LISTEN UART2toXbee38400
-##define LISTEN uart1
-
-
-##define TURNG8 G8_ANIM_TURNLEFT
-#define TURNG8 G8_ANIM_TURNSLOW
+from poses import g8Stand, g8FeetDown, g8Flop, g8Crouch
+from IK import Gaits
+from MotorDriver import MotorDriver
 
 PROG_LOOP_TIME = 19500 # in microseconds
 
-#define AGITATE_TIME 1000 #milliseconds - how long it takes to do an agitate sequence.
-
-#define USE_ONE_SPEED 0
-#define THE_ONE_SPEED 3
-#define THE_TURN_SPEED 7
-#define MAX_WALK_SPD 5
+USE_ONE_SPEED = 0
+THE_ONE_SPEED = 3
+THE_TURN_SPEED = 7
+MAX_WALK_SPD = 5
 
 # bitmasks for buttons array
-BUT_R1 = 0x01
-BUT_R2 = 0x02
-BUT_R3 = 0x04
-BUT_L4 = 0x08
-BUT_L5 = 0x10
-BUT_L6 = 0x20
-BUT_RT = 0x40
-BUT_LT = 0x80
+BUT_R1 = 0x01 # center pan
+BUT_R2 = 0x02 # center pan and tilt
+BUT_R3 = 0x04 # panic
+BUT_L4 = 0x08 # second switch! fast pan mode
+BUT_L5 = 0x10 # laser switch
+BUT_L6 = 0x20 # fire gun
+BUT_RT = 0x40 # turn right
+BUT_LT = 0x80 # turn left
 
-PRINT_DEBUG_COMMANDER = True
+PRINT_DEBUG = False
+PRINT_DEBUG_COMMANDER = False
 PRINT_DEBUG_LOOP = False
 
+# +153 is 45 deg offset for pan servo's mounting scheme.
+PAN_CENTER = 511 + 153
+TILT_CENTER = 511 + 95
 
-PAN_CENTER = 511 + 153 # +153 is 45 deg offset for pan servo's mounting scheme.
-TILT_CENTER = 511 + 95 # 4bar
-PAN_MIN = PAN_CENTER - 4 * (52+30)
-PAN_MAX = PAN_CENTER + 4 * (52+30)
-                                    
-#ACTUATOR_LIST PROGMEM all[] = {servo11.actuator,servo21.actuator,servo31.actuator,servo41.actuator,
-#                        servo12.actuator,servo22.actuator,servo32.actuator,servo42.actuator,
-#                        servo13.actuator,servo23.actuator,servo33.actuator,servo43.actuator,
-#                        servo14.actuator,servo24.actuator,servo34.actuator,servo44.actuator}
+LOADER_TIMEOUT_DURATION = 3000000 # microseconds
+LOADER_SPEED_ON = -24
+LOADER_SPEED_OFF = 0
+ADC_LOADER_LIMIT = 100
 
+GUN_SPEED_ON = -65 #NOTE: (7.2 / 12.6) * 127 = 72.5714286
+GUN_SPEED_OFF = 0
+GUNS_FIRING_DURATION = 250000 # us; 1/4 s
 
-#G8_RUNNER gait = MAKE_G8_RUNNER(all, animations)
-
-# Binary vars
-walk = False
-turn = False
-light = True
-kneeling = False
-flopCnt = 0
-panic = False
+PARAM_LASER_PIN = Pin.board.X12
+CMDR_ALIVE_CNT = 100
 
 # Command settings/interpretation variables (ints)
 #currentAnim = 0
-#playingAnim = -1
 
 # IRcnt = 1
-
-#/MATHEMATICA CODE
-#/loopSpeed = 1000
-#/Plot[65.536*loopSpeed/speed, {speed, 0, 128}, PlotRange -> {500, 4000}]
-#const int g8loopSpeed = 1000
-#int g8speed = 25
-#int g8playbackDir = 1 # value should only ever be -1 or 1.
-#int g8repeatCount = 0
-#int ch = '!'
-#int ch_old = '?'
-#int do_gait = 1
-#short guns_firing = False
-
-#Setting default walking variables...
-#int16_t loopLength = 0 # = 1800
-#int16_t half_loopLength = 0 # = loopLength/2 #reduced the scope and made this local where its used...
-
-#int16_t ang_dir = 0 #UNUSED?
 
 
 class NumaMain(object):
 
     def __init__(self):
         from stm_uart_port import UART_Port
-        from bus import Bus, BusError
+        from bus import Bus#, BusError
         #bus = UART_Port(6, 38400)
         self.cmdrbus = UART_Port(1, 38400)
-        self.axbus = Bus(UART_Port(2, 1000000), show=Bus.SHOW_PACKETS)
+        self.axbus = Bus(UART_Port(2, 1000000))#, show=Bus.SHOW_PACKETS) # can print the packets...
         #else:
         #    print("Unrecognized sysname: {0}".format(sysname))
         #    sys.exit()
-    
+
         self.crx = CommanderRx()
+        self.cmdrAlive = 0
 
         self.leg_ids = [11, 12, 13, 14, #servo11, servo21, servo31, servo41,
                         21, 22, 23, 24, #servo12, servo13, servo14, servo22,
@@ -130,21 +81,46 @@ class NumaMain(object):
         self.servo51Min, self.servo51Max = PAN_CENTER - 4 * (52+30),  PAN_CENTER + 4 * (52+30)
         self.servo52Min, self.servo52Max = 511 - 4 * 31,              511 + 4 * 65
 
+        self.flopCnt = 0
+
+        self.loader_timeout_mode = 0 # 0 off, 1 on
+
+        self.loopLengthList = [6500, 2900, 2300, 1800, 1600, 1450,
+                               1000] #This last value is for turn speed?
+
+        # directionPinNameA, directionPinNameB, pwmNumber, encoderNumber=None
+        # NOTE: VNH5019 current sense is 0.14 V/A. Cont/peak C is 12/30A.
+        # NOTE: pyboard ADC is 12 bit with 3V limit.
+        self.gunMotor = MotorDriver(Pin.board.X5, Pin.board.X8, Pin.board.X6, cs=Pin.board.X7)
+        self.ammoMotor = MotorDriver(Pin.board.Y9, Pin.board.Y12, Pin.board.Y10, cs=Pin.board.Y11)
+        self.laserGPIO = Pin(PARAM_LASER_PIN)
+
+        # Binary vars
+        self.walk = False
+        self.turn = False
+        self.light = True
+        self.kneeling = False
+        self.panic = False
+        self.guns_firing = False
 
         self.gunbutton = False
         self.panicbutton = False
-        self.infobutton = False
+        self.fastturret = False
         self.pan_pos = PAN_CENTER
         self.tilt_pos = TILT_CENTER
-        #self.agitbutton = False
 
         # Defaults?
-        self.trav_rate_default = 25
-        
+        trav_rate_default = 25 # TODO distance covered by steps?
+        self.travRate = trav_rate_default
+        self.double_travRate = 2 * self.travRate
+
         # Various?
-        self.travRate = 0
-        self.double_travRate = 0
         self.turnTimeOffset = 0
+        self.ang_dir = 0 # degrees, 0 is forward, range = -180 to 180
+        self.turn_dir = 1
+        self.turnright = False
+        self.turnleft = False
+        self.turn = False
 
     def main(self):
         self.app_init_hardware()
@@ -153,6 +129,7 @@ class NumaMain(object):
         while True:
             #TODO timing?
             loopStart = utime.ticks_us()
+            #print(loopStart)
             self.app_control(loopStart)
             loopEnd = utime.ticks_us()
             if PRINT_DEBUG_LOOP:
@@ -164,57 +141,53 @@ class NumaMain(object):
     # Initialise the hardware
     def app_init_hardware(self):
         #initHardware()
-        # gaitRunnerInit(&gait)
-        # act_setConnected(&antijam, False)  // Setting this later so servo centers initially.
         pass
-    
+
     # Initialise the software
     # returns TICK_COUNT, usec
     # TODO this silly loop thing needs to be rewritten
     def app_init_software(self):
         print("It begins....")
-        initTrig()
-        
+        self.gaits = Gaits()
+
         #ax12SetID(&servo1, 1)
-        
-#        #Call gait for Standing
-#        g8Stand() 
-    
+
+        # Call gait for Standing
+        g8Stand(self.axbus, self.leg_ids)
+
         myServoReturnLevels(self.axbus, all_ids=self.all_ids)
         print("ServoReturnLevelsSet!")
         initServoLims(self.axbus, self.all_ids)
         print("ServoLimsSet!")
         myServoSpeeds(self.axbus, self.leg_ids, self.turret_ids)
         print("ServoSpeedsSet!")
-    
-#        act_setConnected(&antijam, False)  # Stop microservo
-        
-        #Setting mathy initial values for walking
-        self.loopLength = 1800 # ms (units???)
+
+        # Setting mathy initial values for walking
+        self.loopLength = 1800 # ms
         #self.half_loopLength = self.loopLength / 2 #redundant
-        self.travRate = self.trav_rate_default
-        self.double_travRate = 2 * self.travRate
-    
-#        standing = 1
-#        g8Stand()
-    
+        self.spdChngOffset = 0 # ms
+        self.turn_loops = 0 # TODO explain this variable
+
+        self.standing = 1 # 0: not standing; 1-5 will lower feet; 6+: feet are down, and robot is standing
+        g8Stand(self.axbus, self.leg_ids)
+
         return 0
-    
+
     # This is the main loop
     #TICK_COUNT appControl(LOOP_COUNT loopCount, TICK_COUNT loopStart):
     def app_control(self, loopStart):
-    
+
         # Stop IK and g8s from coinciding... make Numa stop in place.
-#        if walk == True and do_gait == True:
-#            g8Stand() 
-        
+        # TODO do_gait is not used currently
+        #if self.walk == True:# and self.do_gait == True:
+        #    g8Stand(self.axbus, self.leg_ids)
+
         # -------- Start Switch/Button-------
         # Switch/Button - see switch.
         # To test if it is pressed then
     #    if button.pressed():
-    #        # Triggers gun test                    //Want to run motors at 7.2V, so do PWM:
-    #        act_setSpeed(&LeftGun, -70)     #NOTE: (7.2V / 12.6V) * 127 = 72.5714286
-    #        act_setSpeed(&RightGun, -70)     #NOTE: (7.2V / 12.6)V * 127 = 72.5714286
+    #        # Triggers gun test           #Want to run motors at 7.2V, so do PWM:
+    #        act_setSpeed(&LeftGun, -70)   #NOTE: (7.2V / 12.6V) * 127 = 72.5714286
     #
     #        # pressed
     #        # We use the light variable to toggle stuff.
@@ -227,259 +200,288 @@ class NumaMain(object):
     #            LED_off(&statusLED)
     #            light = True
     #            #print("off")
-        
-    #    #Check whether to stop firing guns
-    #    if guns_firing and clockHasElapsed(guns_firing_start_time, guns_firing_duration):
-    #        # guns_firing_duration = 0
-    #        guns_firing = False
-    #        act_setSpeed(&LeftGun, 0)     #NOTE: (7.2 / 12.6) * 127 = 72.5714286
-    #        act_setSpeed(&RightGun, 0)     #NOTE: (7.2 / 12.6) * 127 = 72.5714286
-    #        guns_firing_start_time = clockGetus()
-    #    
+
+        # TODO: Consider whether I can justify disabling guns when self.cmdrAlive=0
+        # Check whether to stop firing guns
+        if self.guns_firing and loopStart > self.guns_firing_end_time:
+            self.guns_firing = False
+            self.gunMotor.direct_set_speed(GUN_SPEED_OFF)
+            self.guns_firing_end_time = loopStart
+
     #    # To test if it is released then
     #    if SWITCH_released(&button):
     #        # released
     #        act_setSpeed(&LeftGun, 0)
-    #        act_setSpeed(&RightGun, 0)
-            
+
         # -------- End   Switch/Button-------
-    
+
         # -------- Start Dynamixel AX-12 Driver-------
         # Dump the current values for all servos on AX12_driver to print
     #    ax12DumpAll(&AX12_driver)
         # -------- End   Dynamixel AX-12 Driver-------
-    
+
         #/////////////////////////////////////////
-        
+
+        self.bb_loader(loopStart)
+
         self.CmdrReadMsgs()
-    
+        self.cmdrAlive -= 1
+        self.cmdrAlive = clamp(self.cmdrAlive, 0, CMDR_ALIVE_CNT)
+
         # Get current time in ms
-#        ms = (loopStart) / 1000 + spdChngOffset
-    
+        ms = (loopStart) / 1000 + self.spdChngOffset
+
         # We always move the turret to the position specified by the Commander.
-        self.axbus.sync_write(self.turret_ids, ax.GOAL_POSITION, [struct.pack('<H', self.pan_pos),
-                                                                  struct.pack('<H', self.tilt_pos)])
-    
+        self.axbus.sync_write(self.turret_ids, ax.GOAL_POSITION, [struct.pack('<H', self.tilt_pos),
+                                                                  struct.pack('<H', self.pan_pos)])
+
         # dump temperatures
-        #if infobutton:
+        #if fastturret:
         #    ax12TempAll(UART3toAX12_driver)
-        #    infobutton = False
-        
-        #if panicbutton:
-        #    flopCnt += 1
-        #    if flopCnt >= 3:
-        #        g8Crouch()
-        #        panic = True
-        #        print("Howdydoo? %d",flopCnt)
-        #        flopCnt = 0
-        #    else:
-        #        # Exit crouch/panic, enable standing, and re-enable torque to 2nd servo of each leg.
-        #        panic = False
-        #        standing = 0
-        #        
-        #        ax12SetTORQUE_ENABLE(&servo12, 1)
-        #        ax12SetTORQUE_ENABLE(&servo22, 1)
-        #        ax12SetTORQUE_ENABLE(&servo32, 1)
-        #        ax12SetTORQUE_ENABLE(&servo42, 1)
-        #        
-        #    panicbutton = False
-    
-        #    # Limit to one press toggling at a time.
-        #    utime.sleep_ms(100)
-        #    uartFlushReceiveBuffer(LISTEN)
-    
+        #    fastturret = False
+
+        # TODO Test this!
+        # Guessing: We go into the g8Crouch pose, then we disable the torque to the 2nd servo in each leg? Doesn't match code here
+        # or my old C code...
+        if self.panicbutton:
+            self.flopCnt += 1
+            if self.flopCnt >= 3:
+                g8Crouch(self.axbus, self.leg_ids) # This disables torque
+                self.panic = True
+                print("Howdydoo? %d", self.flopCnt)
+                self.flopCnt = 0
+            else:
+                # Exit crouch/panic, enable standing, and re-enable torque to 2nd servo of each leg.
+                self.panic = False
+                self.standing = 0
+
+                # Enable torque second servo of each leg
+                self.axbus.sync_write(self.leg_ids[1::4], ax.TORQUE_ENABLE, [struct.pack('<H', 1) for _ in range(4)])
+
+            self.panicbutton = False # TODO not needed?
+
+            # Limit to one press toggling at a time.
+            utime.sleep_ms(100)
+
         #FIRE THE GUNS!!!!!
         #TODO
-#        if gunbutton:
-#            guns_firing = True
-#            act_setSpeed(LeftGun, -65)     #NOTE: (7.2 / 12.6) * 127 = 72.5714286
-#            guns_firing_start_time = utime.ticks_us() #clockGetus()
-    
-#        #We put "panic" before anything else that might move the legs.
-#        if panic:
-#            return 25000 #micro seconds
-#        
-#        # Decrement turn_loops continuously
-#        if turn_loops > 0:
-#            turn_loops -= 1
-#        
-#        if turnleft or turnright:
-#            # LED_off(&statusLED)
-#            if PRINT_DEBUG: print("Turn!  %u\t%u",turnright, turnleft)
-#            
-#            if turn_loops < 1)
-#                self.loopLength = self.loopLengthList[THE_TURN_SPEED - 1]
-#                # Two parts:
-#                # 1) how far 'ms' is from the beginning of a turn animation
-#                # 2) how far from the beginning of a turn animation we want to start at
-#                self.turnTimeOffset = (ms % self.loopLength) - (0.2 * self.loopLength)
-#            
-#            turn = True
-#            turn_loops = 20
-#            turn_dir = 1
-#            if turnleft: turn_dir = -1 # Reverse turn dir here
-#            
-#            standing = 0
-#        
-#        elif turn_loops > 0:
-#            turn_loops = turn_loops # ?
-#        
-#        #Else, walking, possibly
-#        else:
-#            
-#            self.turnTimeOffset = 0
-#            
-#            # walkNewDirIK(0)
-#            walkSPD = sqrt(self.crx.walkv * self.crx.walkv + self.crx.walkh * self.crx.walkh)
-#            walkDIR = atan2(self.crx.walkh, self.crx.walkv)
-#            
-#            walkSPD = interpolate(walkSPD, 0,102, 0,6)
-#            
-#            if walkSPD == 0 and turn_loops == 0:
-#                #g8Stand()
-#                walk = False
-#                if standing < 6:
-#                    standing += 1
-#            
-#            elif walkSPD > 0:
-#                # Debug info
-#                if PRINT_DEBUG:
-#                    print("walk! %f ", (walkDIR * 180.0 / M_PI))
-#            
-#                #Disable turning when walking joystick is moved.
-#                turn_loops = 0  #REDUNDANT
-#                #Disable standing g8
-#                standing = 0
-#            
-#                if walkSPD > MAX_WALK_SPD:
-#                    walkSPD = MAX_WALK_SPD
-#                elif walkSPD == 1 or walkSPD == 2:
-#                    walkSPD = 3
-#                
-#                if USE_ONE_SPEED:
-#                    walkSPD = THE_ONE_SPEED
-#                
-#                newLoopLength = self.loopLengthList[walkSPD - 1] # Temp storage
-#                if newLoopLength != self.loopLength:                    # So we can check for change
-#                    spdChngOffset += speedPhaseFix(loopStart, self.loopLength, newLoopLength)
-#                    self.loopLength = newLoopLength
-#                    #spdChngOffset = spdChngOffset%loopLength
-#                walk = True
-#                walkNewDirIK(int(walkDIR * 180.0 / M_PI))
-#            do_gait = False
+        if self.gunbutton:
+            print("bang!!!")
+            self.guns_firing = True
+            self.gunMotor.direct_set_speed(GUN_SPEED_ON)
+            self.guns_firing_end_time = utime.ticks_us() + GUNS_FIRING_DURATION
+            self.loader_timeout_end = loopStart + LOADER_TIMEOUT_DURATION
+
+        # We put "panic" before anything else that might move the legs.
+        if self.panic:
+            return 25000 #micro seconds
+
+        # Decrement turn_loops continuously
+        if self.turn_loops > 0:
+            self.turn_loops -= 1
+
+        if self.turnleft or self.turnright:
+            # LED_off(&statusLED)
+            #if PRINT_DEBUG: print("Turn!  %u\t%u", self.turnright, self.turnleft)
+
+            if self.turn_loops < 1:
+                self.loopLength = self.loopLengthList[THE_TURN_SPEED - 1]
+                self.half_loopLength = self.loopLength / 2
+                # Two parts:
+                # 1) how far 'ms' is from the beginning of a turn animation
+                # 2) how far from the beginning of a turn animation we want to start at
+                self.turnTimeOffset = (ms % self.loopLength) - (0.2 * self.loopLength)
+
+            self.turn = True
+            self.turn_loops = 20
+            self.turn_dir = 1
+            if self.turnleft:
+                self.turn_dir = -1 # Reverse turn dir here
+
+            self.standing = 0
+
+        elif self.turn_loops > 0:
+            self.turn_loops = self.turn_loops # TODO wtf
+
+        # Else, walking, possibly
+        else:
+            self.turnTimeOffset = 0
+
+            # self.set_new_heading(0) # ??? # Walking forward = 0
+            walkDIR = atan2(self.crx.walkh, self.crx.walkv) # -pi to pi
+
+            # walkSPD is an integer value; 0 or positive
+            walkSPD = sqrt(self.crx.walkv * self.crx.walkv + self.crx.walkh * self.crx.walkh)
+            #walkSPD = interpolate(walkSPD, 0,102, 0,6)
+            walkSPD = int(0 + (6 - 0) * (walkSPD - 0) / (102 - 0)) # see above
+
+            # Not walking, and not turning, so stand!
+            if walkSPD == 0 and self.turn_loops == 0:
+                g8Stand(self.axbus, self.leg_ids) # this is the end result already.
+                self.walk = False
+                if self.standing < 6:
+                    self.standing += 1
+
+            elif walkSPD > 0:
+                # Debug info
+                if PRINT_DEBUG:
+                    print("walk! %f ", (walkDIR * 180.0 / pi))
+
+                # Disable turning when walking joystick is moved.
+                self.turn_loops = 0  #REDUNDANT
+                # Disable standing g8
+                self.standing = 0
+
+                if walkSPD > MAX_WALK_SPD:
+                    walkSPD = MAX_WALK_SPD
+                elif walkSPD == 1 or walkSPD == 2:
+                    walkSPD = 3
+
+                if USE_ONE_SPEED:
+                    walkSPD = THE_ONE_SPEED
+
+                newLoopLength = self.loopLengthList[walkSPD - 1]
+                if newLoopLength != self.loopLength:  # So we can check for change
+                    # TODO spdChngOffset is cumulative? note speedPhaseFix both incr and decrs
+                    self.spdChngOffset += self.speedPhaseFix(loopStart, self.loopLength, newLoopLength)
+                    self.loopLength = newLoopLength
+                    #self.spdChngOffset = spdChngOffset%loopLength
+                self.walk = True
+                self.set_new_heading(int(walkDIR * 180.0 / pi))
+            #self.do_gait = False
         #////////////////////////////////////////
-        
+
         self.half_loopLength = self.loopLength / 2
-        #travRate = 30 - 10 // this was redundant
-        self.double_travRate = 2 * self.travRate
-    
-#        #//////////////////////////
-#        # -------- Start Leg stuff-------
-#    
-#        #the 'now' variables are essentially a sawtooth waves.
-#        now2 = (ms - self.turnTimeOffset) % self.loopLength
-#    
-#        now3 = (ms - self.turnTimeOffset +  half_loopLength) % self.loopLength
-#    
-#        now4 = self.loopLength - (ms - self.turnTimeOffset) % self.loopLength
-#    
-#        now1 = self.loopLength - (ms - self.turnTimeOffset + half_loopLength) % self.loopLength
-#    
-#        #/ Above is where the commander input is interpretted.
-#        #/
-#        #/ The next few blocks are where we determine what gait to use.
-#        #/
-#        #/
-#        
-#        # WALKING WITH IK via walkCode()
-#        #if 0:  //Disables walking
-#        if walk == True and turn_loops == 0:
-#            walkCode(self.loopLength, half_loopLength, self.travRate, double_travRate)
-#        # //Do this in the middle of the calculations to give guns a better firing time accuracy
-#            # if guns_firing and clockHasElapsed(guns_firing_start_time, guns_firing_duration):
-#                # guns_firing_duration = 0
-#                # guns_firing = False
-#                # act_setSpeed(&LeftGun,0)     //NOTE: (7.2 / 12.6) * 127 = 72.5714286
-#                # act_setSpeed(&RightGun,0)     //NOTE: (7.2 / 12.6) * 127 = 72.5714286
-#                # guns_firing_start_time = utime.ticks_us() #clockGetus()
-#    
-#        #Turnning with IK
-#        elif turn_loops > 0 and walk == False:
-#            
-#            turnCode(turn_dir, self.loopLength, half_loopLength)
-#                    
-#            #print("%d\t%d\t%d\t%d",s12pos,s42pos, footH13,footH24)
-#        
-#        elif standing > 0 and standing <= 5:
-#            # g8Stand()
-#            g8FeetDown()
-#        
-#        elif turn_loops > 0 and walk == True:
-#            # g8Stand()
-#            g8FeetDown()
-#        
-#        turnright = False
-#        turnleft = False
-#        
-#        
-#        # Move all servos
-#        if walk == True or turn_loops > 0:
-#            self.axbus.sync_write(self.leg_ids, ax.GOAL_POSITION,
-#                    [struct.pack('<H', pos) for pos in
-#                               (s11pos, s21pos, s31pos, s41pos,
-#                               s12pos, s13pos, s14pos, s22pos,
-#                               s23pos, s24pos, s32pos, s33pos,
-#                               s34pos, s42pos, s43pos, s44pos)])
-#                    )
+        # These don't change....
+        #self.travRate = 30 - 10 # this was redundant
+        #self.double_travRate = 2 * self.travRate
+
+        #//////////////////////////
+        # -------- Start Leg stuff-------
+
+        #the 'now' variables are sawtooth waves (or triangle waves???).
+        now2 = (ms - self.turnTimeOffset) % self.loopLength
+        now3 = (ms - self.turnTimeOffset +  self.half_loopLength) % self.loopLength
+        now4 = self.loopLength - (ms - self.turnTimeOffset) % self.loopLength
+        now1 = self.loopLength - (ms - self.turnTimeOffset + self.half_loopLength) % self.loopLength
+
+        # Above is where the commander input is interpretted.
+        #
+        # The next few blocks are where we determine what gait to use.
+
+        # WALKING WITH IK via walkCode()
+        #if 0:  #Disables walking
+        if self.walk == True and self.turn_loops == 0:
+            self.gaits.walkCode(self.loopLength, self.half_loopLength,
+                                self.travRate, self.double_travRate,
+                                now1, now2, now3, now4, self.ang_dir)
+        #   #Do this in the middle of the calculations to give guns a better firing time accuracy
+            #if self.guns_firing and loopStart > self.guns_firing_end_time:
+            #    self.guns_firing = False
+            #    self.gunMotor.direct_set_speed(GUN_SPEED_OFF)
+            #    self.guns_firing_end_time = loopStart
+
+        # Turning with IK
+        elif self.turn_loops > 0 and self.walk == False:
+            self.gaits.turn_code(self.turn_dir, self.loopLength, self.half_loopLength, now1, now2, now3, now4)
+            #print("%d\t%d\t%d\t%d",s12pos,s42pos, footH13,footH24)
+
+        elif self.standing > 0 and self.standing <= 5:
+            # g8Stand(self.axbus, self.leg_ids)
+            g8FeetDown(self.axbus, self.leg_ids)
+
+        elif self.turn_loops > 0 and self.walk == True:
+            # g8Stand(self.axbus, self.leg_ids)
+            g8FeetDown(self.axbus, self.leg_ids)
+
+        self.turnright = False
+        self.turnleft = False
+
+
+        # Move all servos
+        if self.walk == True or self.turn_loops > 0:
+            self.axbus.sync_write(self.leg_ids, ax.GOAL_POSITION,
+                    [struct.pack('<H', int(pos)) for pos in
+                               (self.gaits.s11pos, self.gaits.s21pos, self.gaits.s31pos, self.gaits.s41pos,
+                                self.gaits.s12pos, self.gaits.s13pos, self.gaits.s14pos, self.gaits.s22pos,
+                                self.gaits.s23pos, self.gaits.s24pos, self.gaits.s32pos, self.gaits.s33pos,
+                                self.gaits.s34pos, self.gaits.s42pos, self.gaits.s43pos, self.gaits.s44pos)])
 
         # TODO
         #if PRINT_IR_RANGE:
         #    IRcnt += 1
-        #    
+        #
         #    if IRcnt >= 8:
-        #        
+        #
         #        distanceRead(distance)
         #        print("L")
         #        distanceDump(distance)
         #        print("\t")
-        #        
+        #
         #        distanceRead(distance2)
         #        print("R")
         #        distanceDump(distance2)
         #        printCRLF()
-        #        
+        #
         #    IRcnt = 0
-        
+
 #        if PRINT_DEBUG and walk == True:
 #            print("")
         # elif PRINT_DEBUG_IK == True and turn == True: print("")
-        #elif PRINT_DEBUG_IK == True and turn_loops > 0:
+        #elif PRINT_DEBUG_IK == True and self.turn_loops > 0:
         #    print("")
-        
-        return PROG_LOOP_TIME #45000  //micro seconds
+
+        return PROG_LOOP_TIME #45000 #micro seconds
         #return 0
     #////////////////
     #/ End of Main Loop
     #////////////////
-    
-    
+
+
     #TICK_COUNT speedPhaseFix(TICK_COUNT clocktime, TICK_COUNT loopLenOld, TICK_COUNT loopLen)
     def speedPhaseFix(self, clocktime, loopLenOld, loopLen):
+        # NOTE: Return value can be negative
         #print(clocktime, loopLenOld, loopLen)
+        #time_ms = clocktime/1000
         return (((clocktime/1000) % loopLenOld) / loopLenOld -
             ((clocktime/1000) % loopLen) / loopLen * loopLen)
-    
+
+
+    def set_new_heading(self, new_dir):
+        # Calculate ang_dir (degrees); ranges from  ...
+        # new_dir:
+        if self.ang_dir == new_dir:
+             return
+
+        #if not previously walking with IK...
+        #if not self.walk: #TODO Not needed?
+        #    g8Stand(self.axbus, self.leg_ids)  #note: walk is now FALSE set walk after this.
+        #    ang_dir = new_dir
+        #    # NEED TO SET TIMING HERE
+        # End former indent
+
+        # If too big a change in direction, change to standing position, then start fresh
+        #(abs(new_dir - self.ang_dir) % 360) #old
+        if abs((new_dir - self.ang_dir + 180) % 360 - 180) >= 20:
+
+            g8Stand(self.axbus, self.leg_ids) # note: walk is now FALSE; g8Stand sets walk
+            self.ang_dir = new_dir
+        # else update direction 
+        else:
+            self.ang_dir = new_dir
+        return
+
 
     #TODO
     def CmdrReadMsgs(self):
         while True:
             byte = self.cmdrbus.read_byte()
-            if byte is None:
+            if byte is None: # emptied buffer
                 break
-            #print('Byte =', byte)
             # process_byte will update crx with latest values from a complete packet; no need to do anything with it here
-            self.crx.process_byte(byte)
-            #if self.crx.process_byte(byte) == CommanderRx.SUCCESS:
+            if self.crx.process_byte(byte) == CommanderRx.SUCCESS:
+                self.cmdrAlive = CMDR_ALIVE_CNT # reset keepalive
+                pass
                 #print('Walk: {:4d}h {:4d}v Look: {:4d}h {:4d}v {:08b}'.format(crx.walkh, crx.walkv, crx.lookh, crx.lookv, crx.button))
 
         # Update variables:
@@ -494,54 +496,93 @@ class NumaMain(object):
             self.panicbutton = True
             if PRINT_DEBUG_COMMANDER: out += "panic\t"
         else: self.panicbutton = False
-        
+
         if buttonval & BUT_L4:
-            self.infobutton = True
-            if PRINT_DEBUG_COMMANDER: out += "info\t"
-        else: self.infobutton = False
-        
+            self.fastturret = True
+            if PRINT_DEBUG_COMMANDER: out += "fastpan\t"
+        else: self.fastturret = False
+
         if buttonval & BUT_R2:
             self.pan_pos = PAN_CENTER
             self.tilt_pos = TILT_CENTER
-            if PRINT_DEBUG_COMMANDER: out += "look\t"
-        # else: infobutton = False
-        
-        # Look right
-        if buttonval & BUT_R1:
-            #self.agitbutton = True
-            if PRINT_DEBUG_COMMANDER: out += "lookR\t"
-            self.pan_pos = PAN_MAX
-        
-        # Look left
-        if buttonval & BUT_R3:
-            #self.agitbutton = True
-            if PRINT_DEBUG_COMMANDER: out += "lookL\t"
-            self.pan_pos = PAN_MIN
+            if PRINT_DEBUG_COMMANDER: out += "lookcenter\t"
 
-        #if laserbutton and cmdrAlive > 0:
-        #    #TODO
-        #    setDigitalOutput(param_laser_pin, HIGH)
-        #else: setDigitalOutput(param_laser_pin, LOW)}
+        if buttonval & BUT_R1:
+            self.pan_pos = PAN_CENTER
+            if PRINT_DEBUG_COMMANDER: out += "lookfront\t"
+        else:
+            pass
+
+        # laser on if button/switch pressed and commander communications are working
+        if buttonval & BUT_L5 and self.cmdrAlive:
+            self.laserGPIO.value(1)
+        else:
+            self.laserGPIO.value(0)
+
+        dowalking = True
+        if buttonval & BUT_LT:
+            if PRINT_DEBUG_COMMANDER: out += "tlft\t"
+            self.turnleft = True
+            self.turnright = False
+            dowalking = False
+        elif buttonval & BUT_RT:
+            if PRINT_DEBUG_COMMANDER: out += "trgt\t"
+            self.turnright = True
+            self.turnleft = False
+            dowalking = False
+        else: # Do nothing
+            self.turnright = False
+            self.turnleft = False
+            self.turn = False
+
+        if dowalking:
+            # Default handling in original Commander.c - sets to range of -127 to 127 or so...
+            # vals - 128 gives look a vlaue in the range from -128 to 127?
+            #walkV = self.crx.walkv
+            #walkH = self.crx.walkv
+            pass
+
+        if self.fastturret:
+            pan_add = int(-self.crx.lookh / 10)
+        else:
+            pan_add = int(-self.crx.lookh / 17)
+        tilt_add = int(-self.crx.lookv / 25)
+
+        self.pan_pos = clamp(self.pan_pos + pan_add, self.servo51Min, self.servo51Max)
+        self.tilt_pos = clamp(self.tilt_pos + tilt_add, self.servo52Min, self.servo52Max)
 
         if out:
             print(out)
-
-        pan_add = int(-self.crx.lookh / 17)
-        tilt_add = int(-self.crx.lookv / 25)
-         
-        self.pan_pos = clamp(self.pan_pos + pan_add, self.servo51Min, self.servo51Max)
-        self.tilt_pos = clamp(self.tilt_pos + tilt_add, self.servo52Min, self.servo52Max)
-#            
-#            //Default handling in original Commander.c - sets to range of -127 to 127 or so...
-#            walkV = self.crx.walkv - 128
-#            walkH = self.crx.walkv - 128
-
         return
+
+
+    def bb_loader(self, loopStart):
+        if self.loader_timeout_mode:
+            # TODO bug: wraparound in calculation of loader_timeout_end; reference loopCount
+            if loopStart > self.loader_timeout_end:
+                self.loader_timeout_mode = 0
+        else:
+            print(LOADER_SPEED_ON,  self.ammoMotor.cs_adc.read())
+            self.ammoMotor.direct_set_speed(LOADER_SPEED_ON)
+
+        # TODO port this; how many bits is the ADC? Check the voltage limits
+        # Use self.ammoMotor.cs as pin
+        #if a2dConvert10bit(ADC_CH_ADC10) > ADC_LOADER_LIMIT:
+        adcval = self.ammoMotor.cs_adc.read()
+        if adcval > ADC_LOADER_LIMIT:
+            print("exceeded 10:", adcval)
+            self.ammoMotor.direct_set_speed(LOADER_SPEED_OFF)
+            self.loader_timeout_mode = 1
+            self.loader_timeout_end = loopStart + LOADER_TIMEOUT_DURATION
+
+        # -------- Start Analogue Input-------
+        # Dump out the raw value for Analogue Input
+        # Dump out the mV (milli-volts) for Analogue Input
+        #print("m1current: " << a2dConvert10bit(ADC_CH_ADC10) << "  m1current: " << a2dReadMv(ADC_CH_ADC10)"mV")
 
 
 def main():
     x = NumaMain()
-    x.app_init_software()
     input("Waiting... (press enter)")
     input("Now onwards! (press enter again)")
     x.main()

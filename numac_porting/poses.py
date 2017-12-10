@@ -1,4 +1,3 @@
-
 import utime
 import struct
 
@@ -110,6 +109,7 @@ def g8Crouch(axbus, leg_ids):
     s22pos = 664 + 175
     s32pos = 358 - 175
     s42pos = 664 + 175
+    # TODO 350 and 150 are for ...?
     s13pos = 358 + 350 + 150
     s23pos = 664 - 350 - 150
     s33pos = 358 + 350 + 150
@@ -123,6 +123,7 @@ def g8Crouch(axbus, leg_ids):
 
     # stop IK and Gait from processing, whichever was active...
     #walk = False
+    # TODO wtf lol... noticed 11-25 that I have a return here and am not sending positions
     return False
 
     utime.sleepms(200)
@@ -136,4 +137,3 @@ def g8Crouch(axbus, leg_ids):
     # Disable torque to 2nd servo of each leg
     axbus.sync_write(leg_ids[1::4], ax.TORQUE_ENABLE, [struct.pack('<H', 0)
                                                       for _ in range(4)])
-
