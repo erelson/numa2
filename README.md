@@ -13,6 +13,7 @@ Bioloid micropython library by DHylands with general micropython implmentations 
 uCee project by JHylands building on the bioloid library and providing AX-12 specific functionality.
 
 Python 3.x library `mnfy` mnfy.py script from which I base minification of all modules to be uploaded.
+https://github.com/brettcannon/mnfy
 
 IK code is my own, ported from C for first version of Numa.
 
