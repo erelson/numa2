@@ -157,7 +157,7 @@ class NumaMain(object):
 
         myServoReturnLevels(self.axbus, all_ids=self.all_ids)
         print("ServoReturnLevelsSet!")
-        initServoLims(self.axbus, self.all_ids)
+        initServoLims(self.axbus)
         print("ServoLimsSet!")
         myServoSpeeds(self.axbus, self.leg_ids, self.turret_ids)
         print("ServoSpeedsSet!")
