@@ -8,11 +8,11 @@ import ax
 # See WalkingOmni.nb
 #Center angles for coax servo of each leg.plus test offsets.
 #Measured from 0deg = front of bot  --------- this doesn't look right.
-#/But are the 
+#/But are the
 
 # Servo position limits, range from 0 to 1023
 # From AX12 manual: CW Angle Limit <= Goal Position <= CCW
-PAN_CENTER = 511 + 153 
+PAN_CENTER = 511 + 153
 lims = [
             [11, 511 - 4 * 16, 511 + 4 * 55],
             [12, 511 - 4 * 84, 511 + 4 * 27],
@@ -51,26 +51,25 @@ def initServoLims(axbus, all_ids):
     utime.sleep_ms(25)
     axbus.sync_write(all_ids, ax.CCW_ANGLE_LIMIT_L, [struct.pack('<H', lim[1]) for lim in lims])
     utime.sleep_ms(25)
+    axbus.sync_write(all_ids, ax.TORQUE_ENABLE, [struct.pack('<H', 1) for _ in range(len(all_ids))])
+    utime.sleep_ms(25)
 
 
 MY_COAX_SPEED = 200
 MY_SERVO_SPEED = 300
 MY_TURRET_SERVO_SPEED = 200
 def myServoSpeeds(axbus, leg_ids, turret_ids):
-    axbus.sync_write(leg_ids, ax.MOVING_SPEED, [bytearray(MY_SERVO_SPEED) for _ in range(len(leg_ids))])
+    axbus.sync_write(leg_ids, ax.MOVING_SPEED, [bytearray([MY_SERVO_SPEED]) for _ in range(len(leg_ids))])
     #for cnt in range(16):
     #    ax12SetMOVING_SPEED( (AX12_driver_list[cnt]), MY_SERVO_SPEED)
     #    utime.sleep_ms(25)
     utime.sleep_ms(25)
-    axbus.sync_write(leg_ids[3::4], ax.MOVING_SPEED, [bytearray(MY_COAX_SPEED) for _ in range(4)])
+    axbus.sync_write(leg_ids[3::4], ax.MOVING_SPEED, [bytearray([MY_COAX_SPEED]) for _ in range(4)])
     utime.sleep_ms(25)
-    axbus.sync_write(turret_ids, ax.MOVING_SPEED, [bytearray(MY_TURRET_SERVO_SPEED), bytearray(MY_TURRET_SERVO_SPEED)])
-   
+    axbus.sync_write(turret_ids, ax.MOVING_SPEED, [bytearray([MY_TURRET_SERVO_SPEED]), bytearray([MY_TURRET_SERVO_SPEED])])
 
-RTN_LVL = 1  
+
+RTN_LVL = 1
 def myServoReturnLevels(axbus, all_ids):
-    axbus.sync_write(all_ids, ax.RETURN_LEVEL, [bytearray(RTN_LVL) for _ in range(len(all_ids))])
+    axbus.sync_write(all_ids, ax.RETURN_LEVEL, [bytearray([RTN_LVL]) for _ in range(len(all_ids))])
     utime.sleep_ms(25)
-    
-    
-
