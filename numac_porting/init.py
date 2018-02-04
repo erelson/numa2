@@ -1,5 +1,12 @@
 import struct
-import utime
+import sys
+sysname = sys.platform
+if sysname == 'linux' or sysname == 'win32':
+    # Mocks for non-pyboard use
+    import time
+    def sleep_ms(x): return time.sleep(x/1e3)
+elif sysname == 'pyboard':
+    from utime import sleep_ms
 
 import ax
 
@@ -42,30 +49,31 @@ lims = [   # ID  # CW           # CCW
 def initServoLims(axbus):
     # Set the limits for motion range on the servos
 
+    #def sync_write(self, dev_ids, offset, values):
     all_ids = [s[0] for s in lims]
     axbus.sync_write(all_ids, ax.CW_ANGLE_LIMIT_L, [struct.pack('<H', lim[1]) for lim in lims])
-    utime.sleep_ms(25)
+    sleep_ms(25)
     axbus.sync_write(all_ids, ax.CCW_ANGLE_LIMIT_L, [struct.pack('<H', lim[2]) for lim in lims])
-    utime.sleep_ms(25)
-    axbus.sync_write(all_ids, ax.TORQUE_ENABLE, [struct.pack('<H', 1) for _ in range(len(all_ids))])
-    utime.sleep_ms(25)
+    sleep_ms(25)
+    axbus.sync_write(all_ids, ax.TORQUE_ENABLE, [bytearray([1]) for _ in range(len(all_ids))])
+    sleep_ms(25)
 
 
 MY_COAX_SPEED = 200
 MY_SERVO_SPEED = 300
 MY_TURRET_SERVO_SPEED = 200
 def myServoSpeeds(axbus, leg_ids, turret_ids):
-    axbus.sync_write(leg_ids, ax.MOVING_SPEED, [bytearray([MY_SERVO_SPEED]) for _ in range(len(leg_ids))])
+    axbus.sync_write(leg_ids, ax.MOVING_SPEED, [struct.pack('<H', MY_SERVO_SPEED) for _ in range(len(leg_ids))])
     #for cnt in range(16):
     #    ax12SetMOVING_SPEED( (AX12_driver_list[cnt]), MY_SERVO_SPEED)
-    #    utime.sleep_ms(25)
-    utime.sleep_ms(25)
-    axbus.sync_write(leg_ids[4:8], ax.MOVING_SPEED, [bytearray([MY_COAX_SPEED]) for _ in range(4)])
-    utime.sleep_ms(25)
-    axbus.sync_write(turret_ids, ax.MOVING_SPEED, [bytearray([MY_TURRET_SERVO_SPEED]), bytearray([MY_TURRET_SERVO_SPEED])])
+    #    sleep_ms(25)
+    sleep_ms(25)
+    axbus.sync_write(leg_ids[4:8], ax.MOVING_SPEED, [struct.pack('<H', MY_COAX_SPEED) for _ in range(4)])
+    sleep_ms(25)
+    axbus.sync_write(turret_ids, ax.MOVING_SPEED, [struct.pack('<H', MY_TURRET_SERVO_SPEED), struct.pack('<H', MY_TURRET_SERVO_SPEED)])
 
 
 RTN_LVL = 1
 def myServoReturnLevels(axbus, all_ids):
     axbus.sync_write(all_ids, ax.RETURN_LEVEL, [bytearray([RTN_LVL]) for _ in range(len(all_ids))])
-    utime.sleep_ms(25)
+    sleep_ms(25)
