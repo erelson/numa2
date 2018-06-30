@@ -14,7 +14,7 @@
 
 # pos and min and max are uint16_t originally
 
-# TODO don't need this 
+# TODO don't need this
 #Servo position variables defaulting these to centered...
 s11pos = 511
 s12pos = 511
@@ -43,7 +43,7 @@ s52pos = 511
 # See WalkingOmni.nb
 #Center angles for coax servo of each leg.plus test offsets.
 #Measured from 0deg = front of bot  --------- this doesn't look right.
-#/But are the 
+#/But are the
 # #define s11A0 225
 # #define s11Aoff 10
 # #define s21A0 -45 //315 //Hmmm no idea here....
@@ -108,9 +108,9 @@ int x41 = preL12
 
 #Leg ServoPos Offsets
 #  this is in units of... 10bit position? of 300 deg range?
-#  currently not used... manually entered values are in 
+#  currently not used... manually entered values are in
 int offsetServo1 = 0
-int offsetServo2 = -237 # 70 
+int offsetServo2 = -237 # 70
 int offsetServo3 = -70
 int offsetServo4 = 0*39 - 0*20 #39 per CAD with original feet.
 

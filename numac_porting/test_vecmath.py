@@ -10,7 +10,7 @@ class TestVecMath(Unittest.Testcase):
 
         res = vector2d_AngleRadians(v1, v2)
         assert_equal(expect, res)
-        
+
     def test_135(self):
         v1 = [0,1]
         v2 = [1,-1]
@@ -19,4 +19,4 @@ class TestVecMath(Unittest.Testcase):
 
         res = vector2d_AngleRadians(v1, v2)
         assert_equal(expect, res)
-        
+

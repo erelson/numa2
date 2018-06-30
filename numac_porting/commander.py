@@ -1,7 +1,5 @@
 """File which parses packets from The Arbotix Commander"""
 
-#from dump_mem import dump_mem
-
 class CommanderRx(object):
     """Parses packets from the commmander."""
 
@@ -25,7 +23,7 @@ class CommanderRx(object):
         self.pkt_bytes = bytearray(7)
         # these range from -128 to 127 once set below
         # left joystick
-        self.lookv = 0 
+        self.lookv = 0
         self.lookh = 0
         # right joystick
         self.walkv = 0
