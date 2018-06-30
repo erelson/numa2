@@ -1,9 +1,16 @@
-import utime
 import struct
+import sys
+sysname = sys.platform
+if sysname == 'linux' or sysname == 'win32':
+    # Mocks for non-pyboard use
+    import time
+    def sleep_ms(x): return time.sleep(x/1e3)
+elif sysname == 'pyboard':
+    from utime import sleep_ms
 
 import ax
 
-# Send standing positions to all servos.
+# Send neutral standing positions to all servos.
 def g8Stand(axbus, leg_ids):
 
     s11pos = 639 + 20
@@ -29,7 +36,7 @@ def g8Stand(axbus, leg_ids):
                         s12pos, s22pos, s32pos, s42pos,
                         s13pos, s23pos, s33pos, s43pos,
                         s14pos, s24pos, s34pos, s44pos)])
-#    utime.sleepms(2000)
+#    sleep_ms(2000)
 
     # stop IK and Gait from processing, whichever was active...
     #walk = False
@@ -61,7 +68,8 @@ def g8FeetDown(axbus, leg_ids):
                         s13pos, s23pos, s33pos, s43pos,
                         s14pos, s24pos, s34pos, s44pos)])
 
-    #utime.sleepms(200) #probably too short, but a long wait is scary, too.
+    # TODO
+    #sleep_ms(200) #probably too short, but a long wait is scary, too.
 
     # stop IK and Gait from processing, whichever was active...
     #walk = False
@@ -97,7 +105,7 @@ def g8Flop(axbus, leg_ids):
                         s13pos, s23pos, s33pos, s43pos,
                         s14pos, s24pos, s34pos, s44pos)])
     # TODO
-    #utime.sleepms(2000) #probably too short, but a long wait is scary, too.
+    #sleep_ms(2000) #probably too short, but a long wait is scary, too.
 
     # stop IK and Gait from processing, whichever was active...
     #walk = False
@@ -121,7 +129,7 @@ def g8Crouch(axbus, leg_ids):
     s34pos = 511
     s44pos = 511
 
-#    utime.sleepms(2000) #probably too short, but a long wait is scary, too.
+#    sleep_ms(2000) #probably too short, but a long wait is scary, too.
 
     # stop IK and Gait from processing, whichever was active...
     #walk = False
@@ -133,10 +141,9 @@ def g8Crouch(axbus, leg_ids):
                         s13pos, s23pos, s33pos, s43pos,
                         s14pos, s24pos, s34pos, s44pos)])
 
-    utime.sleepms(200)
+    sleep_ms(200)
 
     # Disable torque to 2nd servo of each leg
-    axbus.sync_write(leg_ids[4:8], ax.TORQUE_ENABLE, [struct.pack('<H', 0)
-                                                      for _ in range(4)])
+    axbus.sync_write(leg_ids[4:8], ax.TORQUE_ENABLE, [bytearray([0]) for _ in range(4)])
 
     return
