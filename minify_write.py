@@ -41,7 +41,7 @@ def write_minified(infile, outfile, minify=True, readable=False):
             minifier.visit(source_ast)
             with open (outfile, 'w') as fw:
                 fw.write(str(minifier))
-        # More aggressive simple removal of blank lines and comments
+        # More aggressive simple removal of blank lines and comments; combines some continued lines
         else:
             print("Using simple minification")
             with open(infile, 'r') as fr, open(outfile, 'w') as fw:
