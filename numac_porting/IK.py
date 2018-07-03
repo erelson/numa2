@@ -14,7 +14,7 @@ else:
         return _array(data)
 
 
-#uint8_t calc_foot_h(int16_t now, uint16_t foot_h_max, float time_down_frac, 
+#uint8_t calc_foot_h(int16_t now, uint16_t foot_h_max, float time_down_frac,
 #    int16_t half_loopLength, float transition_frac, float height_frac:
 def calc_foot_h(now, foot_h_max, time_down_frac, half_loopLength, transition_frac, height_frac):
     # Important note, now must be in the range from 0 to 2 * half_loopLength
@@ -43,7 +43,7 @@ def calc_foot_h(now, foot_h_max, time_down_frac, half_loopLength, transition_fra
 
 
 # Two functions defined here:
-# - walkCode
+# - walkCode: takes params defining sawtooth (?) time wave and point on wave; returns ...
 # - turnCode
 
 TURN_ANGLE = 25 # angle sweep of legs when turning??
@@ -86,7 +86,7 @@ TRANSITION_FRAC_TURNING = ALL_FEET_DOWN_TIME_FRAC_TURNING + 0.28
 
 # Leg constants
 bodyH = 130 + 20 # mm
-                                             
+
 L0 = 105 + 5 # mm - pretty close to actual...
 L12 = 58
 L23 = 63
@@ -99,15 +99,37 @@ sqL34 = L34 * L34
 
 #Leg ServoPos Offsets
 #  this is in units of 10bit position of 300 deg range
-#  currently not used... manually entered values are in 
+#  currently not used... manually entered values are in
 offsetServo1 = 0
-offsetServo2 = -237 # 70 
+offsetServo2 = -237 # 70
 offsetServo3 = -70
 offsetServo4 = 0*20 #39 per CAD with original feet.
 
 class Gaits():
-    def __init__(self):
+    def __init__(self,
+                bodyH=130 + 20, # mm
+                L0=105 + 5, # mm - pretty close to actual...
+                L12=58,
+                L23=63,
+                L34=67,
+                L45=57,
+            ):
+        self.L0 = L0
+        self.L12 = L12
+        self.L23 = L23
+        self.L34 = L34
+        self.L45 = L45
+        # TODO weird negative; origin at joint 2 axis?
+        self.v12 = [-1., 0]  # constant
+        self.v23 = [0, 0]
+        self.v34 = [0, 0]
+
         self.initTrig()
+        # Leg constants
+        #sqL12 = L12 * L12
+        self.sqL23 = L23 * L23
+        self.sqL34 = L34 * L34
+        #sqL45 = L45 * L45
 
         # TODO safe initial values?
         self.s11pos = 0
@@ -128,10 +150,10 @@ class Gaits():
         self.s44pos = 0
 
     def initTrig(self):
-        # See WalkingOmni.nb
-        #Center angles for coax servo of each leg.plus test offsets.
-        #Measured from 0deg = front of bot  --------- this doesn't look right.
-        #/But are the 
+        # # See WalkingOmni.nb
+        # Center angles for coax servo of each leg.plus test offsets.
+        # Measured from 0deg = front of bot  --------- this doesn't look right.
+        #/But are the
         s11A0 = 225
         self.s11Aoff = 10
         s21A0 = -45 #315 //Hmmm no idea here....
@@ -156,9 +178,14 @@ class Gaits():
         self.sin_servo41Ang = sin(servo41Ang)
         return
 
+    # TODO maybe pull servoX1Ang value calcs out of initTrig so we can get them in test
+    # code easily?
+    #def calc_center_angles(self)
+
 
     def walkCode(self, loopLength, half_loopLength, travRate, double_travRate, now1, now2, now3, now4, ang_dir):
-        #
+
+        # Get height of each pair of feet
         footH13 = calc_foot_h(now2, FH, ALL_FEET_DOWN_TIME_FRAC, half_loopLength, TRANSITION_FRAC, FH_FRAC)
         footH24 = calc_foot_h(now3, FH, ALL_FEET_DOWN_TIME_FRAC, half_loopLength, TRANSITION_FRAC, FH_FRAC)
 
@@ -275,6 +302,8 @@ class Gaits():
     #void doLegKinem(uint16_t myT, uint16_t* mys2pos, uint16_t* mys3pos, uint16_t* mys4pos, short posSwap,
     #         float cos_s1Ang, float sin_s1Ang, float my_trav_cdir, float my_trav_sdir,
     #         int16_t myFootH, float myTrav, short debug):
+    # TODO seems I could split out the calculation of leg length from the calculation of
+    # individual segment's relative angles? So far I made the vectors class level for access
     def doLegKinem(self, myT, posSwap, cos_s1Ang, sin_s1Ang, my_trav_cdir, my_trav_sdir,
              myFootH, myTrav, debug=0):
         # posSwap determines which direction to offset servo position from centered.
@@ -282,36 +311,37 @@ class Gaits():
         #     myPosSwap = posSwap
         #else:
         #    myPosSwap = 1
+
         # Unneeded filtering?
         posSwap = posSwap if posSwap in [-1, 1] else 1
 
         if cos_s1Ang == 0 and sin_s1Ang == 0:
             # Turning; ???
-            legLen = 1.05 * L0
+            legLen = 1.05 * self.L0
         else:
             #Top down x-y plane; floats
             # Yes, my_trav_sdir goes to lenx and etc. (per measuring angle from 0 deg == forward, CCW)
-            lenx = L0 * cos_s1Ang + my_trav_sdir
-            leny = L0 * sin_s1Ang + my_trav_cdir
+            lenx = self.L0 * cos_s1Ang + my_trav_sdir
+            leny = self.L0 * sin_s1Ang + my_trav_cdir
 
             #LEG LENGTH (length of projection of leg onto floor plane)
             legLen = sqrt( lenx * lenx + leny * leny ) #current length of leg 1
         #PRINT LEG LENGTH
         # print("%u,", myT)
 
-        #now x y are side view of leg
-        len24x = legLen - L12 #uint16_t
-        len24y = bodyH - (L45 + myFootH) # body height minus height of point 4; could factor in foot angle
+        # now x y are side view of leg
+        len24x = legLen - self.L12 #uint16_t
+        len24y = bodyH - (self.L45 + myFootH) # body height minus height of point 4; could factor in foot angle
         L24 = sqrt(len24x * len24x + len24y * len24y) # Length btw points 2 and 4 in leg.
         sqL24 = L24*L24
 
         # float angle between horizontal and hypotenuse (L24)
         alph1 = acos(len24x/L24)
-        #alph1 = acos( ( legLen - L12 ) / L24) #old way same as new way but with more math whooops
+        #alph1 = acos( ( legLen - self.L12 ) / L24) #old way same as new way but with more math whooops
 
         # alph2 is the angle of 3-4-2
         #angle... Law of cosines: cos(C) = (a a + b b - c c) / (2 a b)
-        alph2 = acos( (sqL34 + sqL24 - sqL23) / ( 2 * L34 * L24 ) )
+        alph2 = acos( (sqL34 + sqL24 - sqL23) / ( 2 * self.L34 * L24 ) )
 
         if PRINT_DEBUG_IK and debug == 1:
             print("IK: %u _ %u %u %f %f  ", myFootH, len24x, len24y, L24, alph1*57.3)
@@ -323,30 +353,28 @@ class Gaits():
         c_alph1plus2 = cos(alph1 + alph2) #float
         s_alph1plus2 = sin(alph1 + alph2) #float
 
+        # OLD:
         # Determine and create leg segment vectors
         # For diagram of math, see: .................. .nb
         #Orientation: Am I using the XY plane, not the (-X,Y) plane? YES
-        #v12 = MAKE_VECTOR2D(-1, 0) #Assuming always horiz, but measured from vertical. 
-        #v12vert = MAKE_VECTOR2D(0,1)
-        #v23 = MAKE_VECTOR2D( L12 -  (legLen - L34 * c_alph1plus2), \
-        #   bodyH - ((myFootH + L45) + L34 * s_alph1plus2) )
-        #v34 = MAKE_VECTOR2D( -L34 * c_alph1plus2, \
-        #   L34 * s_alph1plus2 ) #
-        ##v34 = MAKE_VECTOR2D( (legLen - L34 * c_alph1plus2) - legLen, \
-        #    #        ((myFootH + L45) + L34 * s_alph1plus2) - (myFootH + L45) ) #
-        # TODO weird negative
-        v12 = [-1, 0] # Assuming always horiz, but measured from vertical. 
+
+        # NOTE replaced with self.v12.
+        # TODO weird negative; origin at joint 2 axis?
+        #v12 = [-1, 0] # Assuming always horiz, but measured from vertical.
 
         v12vert = [0, 1]
-        v23 = [L12 -  (legLen - L34 * c_alph1plus2), bodyH - ((myFootH + L45) + L34 * s_alph1plus2)]
-        v34 = [-L34 * c_alph1plus2, L34 * s_alph1plus2]
-        #v12 = array('i', [-1, 0]) # Assuming always horiz, but measured from vertical. 
+        v23 = [self.L12 -  (legLen - self.L34 * c_alph1plus2), bodyH - ((myFootH + self.L45) + self.L34 * s_alph1plus2)]
+        v34 = [-self.L34 * c_alph1plus2, self.L34 * s_alph1plus2]
+        #self.v12 = v12
+        self.v23 = v23
+        self.v34 = v34
+        #v12 = array('i', [-1, 0]) # Assuming always horiz, but measured from vertical.
 
         #v12vert = array('i', [0, 1])
-        #v23 = array('f', [L12 -  (legLen - L34 * c_alph1plus2),
-        #             bodyH - ((myFootH + L45) + L34 * s_alph1plus2) ])
-        #v34 = array('f', [-L34 * c_alph1plus2,
-        #             L34 * s_alph1plus2 ])
+        #v23 = array('f', [self.L12 -  (legLen - self.L34 * c_alph1plus2),
+        #             bodyH - ((myFootH + self.L45) + self.L34 * s_alph1plus2) ])
+        #v34 = array('f', [-self.L34 * c_alph1plus2,
+        #             self.L34 * s_alph1plus2 ])
 
         # To avoid problems with sign of angle being incorrectly handled by v2D_Angle
         # ... we instead compare a near right angle and later subtract Pi/2 radians
@@ -356,15 +384,15 @@ class Gaits():
         # For calculating the angles, we want both vectors v23 and v32... so we make v32 by inverting v23.
         v32 = [-1 * v23[0], -1 * v23[1]]
 
-        #Calculate the angles with scale factor 195.2 for radians ->  300deg/1022 scale
+        # Calculate the angles with scale factor 195.2 for radians ->  300deg/1022 scale
         #   .... Note that the offsetServo variables are sometimes negative.
-        mys2pos = 511 + posSwap * ( (pi/2.0 - v2d_AngleRadians(v23, v12vert) ) * 195.2 + offsetServo2) # 70.08 
+        mys2pos = 511 + posSwap * ( (pi/2.0 - v2d_AngleRadians(v23, v12vert) ) * 195.2 + offsetServo2) # 70.08
         mys3pos = 511 + posSwap * ((pi - v2d_AngleRadians(v34, v32)) * 195.2 + offsetServo3) #- 70.08)
         mys4pos = 511 - posSwap * ((v2d_AngleRadians(v34, v45) - pi/2) * -195.2 + offsetServo4) #+ 39.19)
         #mys4pos = 511 - posSwap * (v2d_AngleRadians(v34, v45) * 195.2 + offsetServo4) #+ 39.19)
 
         if PRINT_DEBUG_IK and debug == 1:
-            print("_ %f *%f %f %d *%d %d ", v2d_AngleRadians(v23, v12),
+            print("_ %f *%f %f %d *%d %d ", v2d_AngleRadians(v23, self.v12),
                     v2d_AngleRadians(v34, v32),
                     v2d_AngleRadians(v34, v45),
                     mys2pos,
@@ -373,7 +401,7 @@ class Gaits():
                     )
         return mys2pos, mys3pos, mys4pos
 
- 
+
 def v2d_Length(vec):
     #if vec *is* normalised:
     #    return 1.0
@@ -391,5 +419,5 @@ def v2d_AngleRadians(v1, v2):
         vDot = -1.0
     elif vDot >  1.0:
         vDot = 1.0
-    
+
     return acos(vDot)

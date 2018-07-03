@@ -1,17 +1,49 @@
-# NOTE This is the correct, up to date one I think
 from math import pi, sqrt, atan2
 import struct
+#import os
+import sys
 
-import utime
-from pyb import Pin
 
+#sysname = os.uname().sysname
+sysname = sys.platform
+if sysname == 'linux' or sysname == 'win32':
+    # Mocks for non-pyboard use
+    import time
+    def ticks_us(): return (time.time()%1.e4)*1.e3
+    def ticks_diff(x, y): return x - y
+    def sleep_us(x): return time.sleep(x/1.e6)
+    def sleep_ms(x): return time.sleep(x/1.e3)
+    #Bus = lambda x: x
+    from unittest.mock import Mock, MagicMock
+    Pin = Mock()
+    #_read = MagicMock()
+    #_read.__gt__.return_value = 0
+    #_read().__gt__.return_value = 0
+    #MotorDriver = MagicMock()#cs_adc=MagicMock(read=1))
+    #MotorDriver.__gt__.return_value = 5
+    #x = MotorDriver()
+    #print(x)
+    #sys.exit()
+    from mock_hardware import MockMotorDriver as MotorDriver
+    from mock_hardware import MockUART_Port_from_COM as UART_Port
+    from mock_hardware import MockBusToQueue as Bus
+    print(UART_Port)
+
+elif sysname == 'pyboard':
+    from stm_uart_port import UART_Port
+    from bus import Bus
+    from utime import ticks_us, ticks_diff, sleep_us, sleep_ms
+    from pyb import Pin
+    from MotorDriver import MotorDriver
+
+#
 import ax
 from helpers import clamp, speedPhaseFix
 from init import myServoReturnLevels, myServoSpeeds, initServoLims
 from commander import CommanderRx
 from poses import g8Stand, g8FeetDown, g8Flop, g8Crouch
 from IK import Gaits
-from MotorDriver import MotorDriver
+
 
 PROG_LOOP_TIME = 19500 # in microseconds
 
@@ -50,6 +82,8 @@ GUNS_FIRING_DURATION = 250000 # us; 1/4 s
 PARAM_LASER_PIN = Pin.board.X12
 CMDR_ALIVE_CNT = 100
 
+LOOPS_B4_FLOP = 3 # See flopCnt
+
 # Command settings/interpretation variables (ints)
 #currentAnim = 0
 
@@ -57,16 +91,25 @@ CMDR_ALIVE_CNT = 100
 
 
 class NumaMain(object):
+    """Class containing the main loop logic for the robot
 
-    def __init__(self):
-        from stm_uart_port import UART_Port
-        from bus import Bus#, BusError
-        #bus = UART_Port(6, 38400)
-        self.cmdrbus = UART_Port(1, 38400)
-        self.axbus = Bus(UART_Port(2, 1000000))#, show=Bus.SHOW_PACKETS) # can print the packets...
-        #else:
-        #    print("Unrecognized sysname: {0}".format(sysname))
-        #    sys.exit()
+    Invoke main() after initialization.
+    """
+
+    def __init__(self,
+                 cmdrbus=None,
+                 axbus=None#, show=Bus.SHOW_PACKETS) # can print the packets...
+            ):
+        print("Initializing NumaMain!...")
+        if cmdrbus:
+            self.cmdrbus = cmdrbus
+        else:
+            self.cmdrbus = UART_Port(1, 38400)
+        if axbus:
+            self.axbus = axbus
+            print("AXBUS QUEUE:", axbus.queue) # TODO debug remove
+        else:
+            self.axbus = Bus(UART_Port(2, 1000000))
 
         self.crx = CommanderRx()
         self.cmdrAlive = 0
@@ -81,12 +124,12 @@ class NumaMain(object):
         self.servo51Min, self.servo51Max = PAN_CENTER - 4 * (52+30),  PAN_CENTER + 4 * (52+30)
         self.servo52Min, self.servo52Max = 511 - 4 * 31,              511 + 4 * 65
 
-        self.flopCnt = 0
+        self.flopCnt = 0 # Counter incremented by button presses, eventually disabling leg servos
 
         self.loader_timeout_mode = 0 # 0 off, 1 on
 
         self.loopLengthList = [6500, 2900, 2300, 1800, 1600, 1450,
-                               1000] #This last value is for turn speed?
+                               1000] # This last value is for turn speed?
 
         # directionPinNameA, directionPinNameB, pwmNumber, encoderNumber=None
         # NOTE: VNH5019 current sense is 0.14 V/A. Cont/peak C is 12/30A.
@@ -100,7 +143,7 @@ class NumaMain(object):
         self.turn = False
         self.light = True
         self.kneeling = False
-        self.panic = False
+        self.panic = False # If True, will not move leg servos
         self.guns_firing = False
 
         self.gunbutton = False
@@ -126,16 +169,26 @@ class NumaMain(object):
         self.app_init_hardware()
         self.app_init_software()
         oldLoopStart = 0
+        print("Starting NUMA loop...")
         while True:
-            #TODO timing?
-            loopStart = utime.ticks_us()
-            #print(loopStart)
-            self.app_control(loopStart)
-            loopEnd = utime.ticks_us()
+            #TODO timing? ???
+            loopStart = ticks_us()
+            #print("------------------------LOOPSTART:", loopStart)
+            desired_loop_time = self.app_control(loopStart)
+            loopEnd = ticks_us()
+            #print("------------------------LOOPEND:", loopEnd)
             if PRINT_DEBUG_LOOP:
                 print("%ld" % (loopStart - oldLoopStart))
                 oldLoopStart = self.loopStart
-            utime.sleep_us(PROG_LOOP_TIME - utime.ticks_diff(loopEnd, loopStart))
+            makeup_time = desired_loop_time - ticks_diff(loopEnd, loopStart)
+            if makeup_time > 0:
+                sleep_us(makeup_time)
+            else:
+                print("Slow loop, exceeded looptime by:", -1 * makeup_time)
+            #sleep_us(PROG_LOOP_TIME - ticks_diff(loopEnd, loopStart))
+            if sysname == 'linux' or sysname == 'win32':
+                pass
+                #print("Simulation loopstart time:", loopStart, "us")
 
 
     # Initialise the hardware
@@ -244,7 +297,7 @@ class NumaMain(object):
         # Guessing: We go into the g8Crouch pose, then we reenable the torque to the 2nd servo in each leg afterwards
         if self.panicbutton:
             self.flopCnt += 1
-            if self.flopCnt >= 3:
+            if self.flopCnt >= LOOPS_B4_FLOP:
                 g8Crouch(self.axbus, self.leg_ids) # This disables torque to second servo in each leg
                 self.panic = True
                 print("Howdydoo? %d", self.flopCnt)
@@ -255,12 +308,10 @@ class NumaMain(object):
                 self.standing = 0
 
                 # Enable torque second servo of each leg
-                self.axbus.sync_write(self.leg_ids[4:8], ax.TORQUE_ENABLE, [struct.pack('<H', 1) for _ in range(4)])
+                self.axbus.sync_write(self.leg_ids[4:8], ax.TORQUE_ENABLE, [bytearray([1]) for _ in range(4)])
 
-            self.panicbutton = False # TODO not needed?
-
-            # Limit to one press toggling at a time.
-            utime.sleep_ms(100)
+            # Limit to one increment of flopCnt per button press
+            sleep_ms(100)
 
         #FIRE THE GUNS!!!!!
         #TODO
@@ -268,10 +319,10 @@ class NumaMain(object):
             print("bang!!!")
             self.guns_firing = True
             self.gunMotor.direct_set_speed(GUN_SPEED_ON)
-            self.guns_firing_end_time = utime.ticks_us() + GUNS_FIRING_DURATION
+            self.guns_firing_end_time = ticks_us() + GUNS_FIRING_DURATION
             self.loader_timeout_end = loopStart + LOADER_TIMEOUT_DURATION
 
-        # We put "panic" before anything else that might move the legs.
+        # We check "panic" before anything else that might move the legs.
         if self.panic:
             return 25000 #micro seconds
 
@@ -341,7 +392,7 @@ class NumaMain(object):
 
                 newLoopLength = self.loopLengthList[walkSPD - 1]
                 if newLoopLength != self.loopLength:  # So we can check for change
-                    # TODO spdChngOffset is cumulative? note speedPhaseFix both incr and decrs
+                    # Note speedPhaseFix both incr and decrs
                     self.spdChngOffset += speedPhaseFix(loopStart, self.loopLength, newLoopLength)
                     self.loopLength = newLoopLength
                     #self.spdChngOffset = spdChngOffset%loopLength
@@ -448,7 +499,7 @@ class NumaMain(object):
 
             g8Stand(self.axbus, self.leg_ids) # note: walk is now FALSE; g8Stand sets walk
             self.ang_dir = new_dir
-        # else update direction 
+        # else update direction
         else:
             self.ang_dir = new_dir
         return
@@ -458,12 +509,14 @@ class NumaMain(object):
     def CmdrReadMsgs(self):
         while True:
             byte = self.cmdrbus.read_byte()
+            # TODO mocking uses serial.Serial.read() which blocks... won't ever be None currently
             if byte is None: # emptied buffer
                 break
             # process_byte will update crx with latest values from a complete packet; no need to do anything with it here
             if self.crx.process_byte(byte) == CommanderRx.SUCCESS:
                 self.cmdrAlive = CMDR_ALIVE_CNT # reset keepalive
-                pass
+                self.cmdrbus.clear_read_buffer()
+                break
                 #print('Walk: {:4d}h {:4d}v Look: {:4d}h {:4d}v {:08b}'.format(crx.walkh, crx.walkv, crx.lookh, crx.lookv, crx.button))
 
         # Update variables:
@@ -518,12 +571,15 @@ class NumaMain(object):
             self.turn = False
 
         if dowalking:
+            # Walk joystick is left joystick
             # Default handling in original Commander.c - sets to range of -127 to 127 or so...
             # vals - 128 gives look a vlaue in the range from -128 to 127?
-            #walkV = self.crx.walkv
-            #walkH = self.crx.walkv
+            # TODO unused wtf
+            walkV = self.crx.walkv
+            walkH = self.crx.walkh#v
             pass
 
+        # Look joystick is right joystick
         if self.fastturret:
             pan_add = int(-self.crx.lookh / 10)
         else:
@@ -552,7 +608,7 @@ class NumaMain(object):
         #if a2dConvert10bit(ADC_CH_ADC10) > ADC_LOADER_LIMIT:
         adcval = self.ammoMotor.cs_adc.read()
         if adcval > ADC_LOADER_LIMIT:
-            print("exceeded 10:", adcval)
+            print("adcval exceeded 10:", adcval)
             self.ammoMotor.direct_set_speed(LOADER_SPEED_OFF)
             self.loader_timeout_mode = 1
             self.loader_timeout_end = loopStart + LOADER_TIMEOUT_DURATION

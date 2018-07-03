@@ -38,8 +38,9 @@ class Wrapper():
 
     def walk_angle(self, travRate=25, #mm
                       loopLength=10000, repeat_count=1):
-        """"TODO"""
-        self.times= []
+        """Invokes walkCode, which invokes doLegKinem
+        """
+        self.times = []
         self.points = []
 
         half_loopLength = loopLength/2.0
