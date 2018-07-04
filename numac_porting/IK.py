@@ -1,5 +1,5 @@
 import sys
-from math import cos, sin, acos, pi, sqrt, atan2
+from math import cos, sin, acos, pi, sqrt, atan2, copysign
 
 PRINT_DEBUG_IK = False
 
@@ -61,25 +61,42 @@ ALL_FEET_DOWN_TIME_FRAC_TURNING = 0.12 # (one half of fraction of time both feet
 TRANSITION_FRAC = ALL_FEET_DOWN_TIME_FRAC + 0.28
 TRANSITION_FRAC_TURNING = ALL_FEET_DOWN_TIME_FRAC_TURNING + 0.28
 
+#  a: default leg position (fixed)
+#  b: walk vector (from controller)
+#  c: trav offset vector (dynamic for each leg)
+# Add a + c to get leg vector and determine leg length
+#
+#        c      _ b   
+#       /       /|    
+#      a\      /    / 
+#        \    /    /  
+#         \ _____ /   
+#          |     |    
+#          |numa |    
+#          |_____|    
+#         /       \   
+#        /         \  
+#       /           \ 
+
 #                          //\3                           
-#          3-4-2 = alph2  // \\            (3)               
+#          3-4-2 = alph2  // \\            (3)            
 #                        //   \\                          
-#                        4\__  \\__     4                         
-#                            \__\==      \                        
-#               3               2      ___\2                      
-#              /\                     H  alph1                    
+#                        4\__  \\__     4                 
+#                            \__\==      \                
+#               3               2      ___\2              
+#              /\                     H  alph1            
 #             /  \                                        
-#            /    \                                       
+#            /    \          alph2 +/- alph1 = 3-4-horiz  
 #           /      \                                      
 #          /        \                                     
 #         /          \                                    
 #        /            \                                   
 #     4 /              \                                  
 #      |                \        |                        
-#      |                 \_______|1        ___              
-#      |                  2      |_______    |             
-#      |                                     |- bodyH
-#      |5                                  __|             
+#      |                 \_______|1        ___            
+#      |                  2      |_______    |            
+#      |                                     |- bodyH 
+#      |5                                  __|            
 #
 #
 #      |___________legLen________|
@@ -209,8 +226,9 @@ class Gaits():
         cdir = cos(direction)
         sdir = sin(direction)
 
-        #trav values are calculated at each time step
+        # trav values are calculated at each time step
         # represent offset of foot position in walking direction from standing point of foot.
+        # travN is vector length in walking direction to offset foot position by
         trav2 = ( double_travRate * (now2 / half_loopLength) ) - travRate
         trav3 = ( double_travRate * (now3 / half_loopLength) ) - travRate
         trav4 = ( double_travRate * (now4 / half_loopLength) ) - travRate
@@ -230,21 +248,21 @@ class Gaits():
         trav_cdir4 = trav4 * cdir
         trav_sdir4 = trav4 * sdir
 
-    #    self.doLegKinem( myT, mys2pos, mys3pos, mys4pos, posSwap,
+    #    self.doLegKinem( myT, posSwap,
     #                     cos_s1Ang, sin_s1Ang, my_trav_cdir, my_trav_sdir,
     #                     myFootH, myTrav, debug)
         self.s12pos, self.s13pos, self.s14pos = \
                 self.doLegKinem(now1, 1, self.cos_servo11Ang, self.sin_servo11Ang,
-                                     trav_cdir1, trav_sdir1, footH13, trav1, 0)
+                                     trav_cdir1, trav_sdir1, footH13, 0)
         self.s22pos, self.s23pos, self.s24pos = \
                 self.doLegKinem(now2, -1, self.cos_servo21Ang, self.sin_servo21Ang,
-                                     trav_cdir2, trav_sdir2, footH24, trav2, 0)
+                                     trav_cdir2, trav_sdir2, footH24, 0)
         self.s32pos, self.s33pos, self.s34pos = \
                 self.doLegKinem(now3, 1, self.cos_servo31Ang, self.sin_servo31Ang,
-                                     trav_cdir3, trav_sdir3, footH13, trav3, 0)
+                                     trav_cdir3, trav_sdir3, footH13, 0)
         self.s42pos, self.s43pos, self.s44pos = \
                 self.doLegKinem(now4, -1, self.cos_servo41Ang, self.sin_servo41Ang,
-                                     trav_cdir4, trav_sdir4, footH24, trav4, 1)
+                                     trav_cdir4, trav_sdir4, footH24, 1)
 
         #if PRINT_DEBUG_IK:
         #    print("%u %u " % (s42pos, s43pos))
@@ -277,11 +295,11 @@ class Gaits():
 
         if now3 >= half_loopLength:         # Goes from 0ms...5000ms
             now3 = loopLength - now3     # then 5000ms...0ms
-        #/
-        #/if now1 >= half_loopLength:         // Goes from 0ms...5000ms
-        #/    now1 = loopLength - now1     // then 5000ms...0ms
-        #/if now4 >= half_loopLength:         // Goes from 0ms...5000ms
-        #/    now4 = loopLength - now4     // then 5000ms...0ms
+        # Don't need to change now1 and now4?
+        #if now1 >= half_loopLength:         // Goes from 0ms...5000ms
+        #    now1 = loopLength - now1     // then 5000ms...0ms
+        #if now4 >= half_loopLength:         // Goes from 0ms...5000ms
+        #    now4 = loopLength - now4     // then 5000ms...0ms
 
         self.s31pos = 511 + ( 45 + self.s31Aoff + my_turn_dir * TURN_ANGLE*(2*now3/loopLength - 0.5))*1024.0/300.0
         self.s41pos = 511 + (-45 + self.s41Aoff + my_turn_dir * TURN_ANGLE*(2*now2/loopLength - 0.5))*1024.0/300.0
@@ -291,10 +309,10 @@ class Gaits():
     #        self.doLegKinem( myT, mys2pos, mys3pos, mys4pos, posSwap, \
     #     cos_s1Ang, sin_s1Ang, my_trav_cdir, my_trav_sdir, \
     #     myFootH, myTrav, debug)
-        self.s12pos, self.s13pos, self.s14pos = self.doLegKinem(now3, 1, 0, 0, 0, 0, footH13, 0, 0)
-        self.s22pos, self.s23pos, self.s24pos = self.doLegKinem(now2, -1, 0, 0, 0, 0, footH24, 0, 0)
-        self.s32pos, self.s33pos, self.s34pos = self.doLegKinem(now3, 1, 0, 0, 0, 0, footH13, 0, 0)
-        self.s42pos, self.s43pos, self.s44pos = self.doLegKinem(now4, -1, 0, 0, 0, 0, footH24, 0, 1)
+        self.s12pos, self.s13pos, self.s14pos = self.doLegKinem(now3, 1, 0, 0, 0, 0, footH13, 0)
+        self.s22pos, self.s23pos, self.s24pos = self.doLegKinem(now2, -1, 0, 0, 0, 0, footH24, 0)
+        self.s32pos, self.s33pos, self.s34pos = self.doLegKinem(now3, 1, 0, 0, 0, 0, footH13, 0)
+        self.s42pos, self.s43pos, self.s44pos = self.doLegKinem(now4, -1, 0, 0, 0, 0, footH24, 1)
 
     #/////// end turnCode()
 
@@ -305,7 +323,7 @@ class Gaits():
     # TODO seems I could split out the calculation of leg length from the calculation of
     # individual segment's relative angles? So far I made the vectors class level for access
     def doLegKinem(self, myT, posSwap, cos_s1Ang, sin_s1Ang, my_trav_cdir, my_trav_sdir,
-             myFootH, myTrav, debug=0):
+             myFootH, debug=0):
         # posSwap determines which direction to offset servo position from centered.
         #if posSwap == 1 or posSwap == -1:
         #     myPosSwap = posSwap
@@ -315,17 +333,18 @@ class Gaits():
         # Unneeded filtering?
         posSwap = posSwap if posSwap in [-1, 1] else 1
 
+        # Turning (see turn_code())
         if cos_s1Ang == 0 and sin_s1Ang == 0:
-            # Turning; ???
-            legLen = 1.05 * self.L0
+            legLen = 1.05 * self.L0  # Apparently I'm making the legs stick out a little bit further when turning.
         else:
-            #Top down x-y plane; floats
+            # Top down x-y plane; lenx and leny form the vector of the leg, from which we get length
+            # Note: cos_s1Ang and sin_s1Ang do not change.
             # Yes, my_trav_sdir goes to lenx and etc. (per measuring angle from 0 deg == forward, CCW)
             lenx = self.L0 * cos_s1Ang + my_trav_sdir
             leny = self.L0 * sin_s1Ang + my_trav_cdir
 
-            #LEG LENGTH (length of projection of leg onto floor plane)
-            legLen = sqrt( lenx * lenx + leny * leny ) #current length of leg 1
+            # LEG LENGTH (length of projection of leg onto floor plane)
+            legLen = sqrt( lenx * lenx + leny * leny ) # current length of leg
         #PRINT LEG LENGTH
         # print("%u,", myT)
 
@@ -337,7 +356,9 @@ class Gaits():
 
         # float angle between horizontal and hypotenuse (L24)
         alph1 = acos(len24x/L24)
-        #alph1 = acos( ( legLen - self.L12 ) / L24) #old way same as new way but with more math whooops
+        # We use len24y's sign because angle 3-4-horizontal is either alph2 + alph1 or alph2 - alph1
+        # depending on whether point 4 is below or above point 2, respectively.
+        alph1 = copysign(alph1, len24y)
 
         # alph2 is the angle of 3-4-2
         #angle... Law of cosines: cos(C) = (a a + b b - c c) / (2 a b)
@@ -350,8 +371,9 @@ class Gaits():
         #Everything seems to be OK up to here
         #/////////
 
-        c_alph1plus2 = cos(alph1 + alph2) #float
-        s_alph1plus2 = sin(alph1 + alph2) #float
+        # Sine and cosine of angle between 4-3 and horizontal
+        c_alph1plus2 = cos(alph2 + alph1) #float
+        s_alph1plus2 = sin(alph2 + alph1) #float
 
         # OLD:
         # Determine and create leg segment vectors
@@ -363,8 +385,10 @@ class Gaits():
         #v12 = [-1, 0] # Assuming always horiz, but measured from vertical.
 
         v12vert = [0, 1]
-        v23 = [self.L12 -  (legLen - self.L34 * c_alph1plus2), bodyH - ((myFootH + self.L45) + self.L34 * s_alph1plus2)]
-        v34 = [-self.L34 * c_alph1plus2, self.L34 * s_alph1plus2]
+        v23 = [self.L12 - (legLen - self.L34 * c_alph1plus2),
+               bodyH - ((myFootH + self.L45) + self.L34 * s_alph1plus2)]
+        v34 = [-self.L34 * c_alph1plus2,
+               self.L34 * s_alph1plus2]
         #self.v12 = v12
         self.v23 = v23
         self.v34 = v34
