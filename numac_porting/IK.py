@@ -80,7 +80,7 @@ TRANSITION_FRAC_TURNING = ALL_FEET_DOWN_TIME_FRAC_TURNING + 0.28
 
 #                          //\3                           
 #          3-4-2 = alph2  // \\            (3)            
-#                        //   \\                          
+#          3-2-4 = alph3 //   \\                          
 #                        4\__  \\__     4                 
 #                            \__\==      \                
 #               3               2      ___\2              
@@ -102,7 +102,7 @@ TRANSITION_FRAC_TURNING = ALL_FEET_DOWN_TIME_FRAC_TURNING + 0.28
 #      |___________legLen________|
 
 # Leg constants
-bodyH = 130 + 20 # mm
+bodyH = 150 #130 + 20 # mm
 
 L0 = 105 + 5 # mm - pretty close to actual...
 L12 = 58
@@ -202,9 +202,10 @@ class Gaits():
 
     def walkCode(self, loopLength, half_loopLength, travRate, double_travRate, now1, now2, now3, now4, ang_dir):
 
+        # OPT: self added for jupyter
         # Get height of each pair of feet
-        footH13 = calc_foot_h(now2, FH, ALL_FEET_DOWN_TIME_FRAC, half_loopLength, TRANSITION_FRAC, FH_FRAC)
-        footH24 = calc_foot_h(now3, FH, ALL_FEET_DOWN_TIME_FRAC, half_loopLength, TRANSITION_FRAC, FH_FRAC)
+        self.footH13 = calc_foot_h(now2, FH, ALL_FEET_DOWN_TIME_FRAC, half_loopLength, TRANSITION_FRAC, FH_FRAC)
+        self.footH24 = calc_foot_h(now3, FH, ALL_FEET_DOWN_TIME_FRAC, half_loopLength, TRANSITION_FRAC, FH_FRAC)
 
         #Now change the now variables so that they track a triangle wave instead of a sawtooth wave
         if now2 >= half_loopLength:                # Goes from 0ms...5000ms
@@ -216,7 +217,7 @@ class Gaits():
         if now4 >= half_loopLength:                # Goes from 0ms...5000ms
             now4 = loopLength - now4            # then 5000ms...0ms
 
-        #print("%u\t%u\n"  (footH13, footH24))
+        #print("%u\t%u\n"  (self.footH13, self.footH24))
 
         #/ ///////////////////
         #/ Now we use the travel direction to calculate leg lengths and coax angles.
@@ -253,16 +254,16 @@ class Gaits():
     #                     myFootH, myTrav, debug)
         self.s12pos, self.s13pos, self.s14pos = \
                 self.doLegKinem(now1, 1, self.cos_servo11Ang, self.sin_servo11Ang,
-                                     trav_cdir1, trav_sdir1, footH13, 0)
+                                     trav_cdir1, trav_sdir1, self.footH13, 0)
         self.s22pos, self.s23pos, self.s24pos = \
                 self.doLegKinem(now2, -1, self.cos_servo21Ang, self.sin_servo21Ang,
-                                     trav_cdir2, trav_sdir2, footH24, 0)
+                                     trav_cdir2, trav_sdir2, self.footH24, 0)
         self.s32pos, self.s33pos, self.s34pos = \
                 self.doLegKinem(now3, 1, self.cos_servo31Ang, self.sin_servo31Ang,
-                                     trav_cdir3, trav_sdir3, footH13, 0)
+                                     trav_cdir3, trav_sdir3, self.footH13, 0)
         self.s42pos, self.s43pos, self.s44pos = \
                 self.doLegKinem(now4, -1, self.cos_servo41Ang, self.sin_servo41Ang,
-                                     trav_cdir4, trav_sdir4, footH24, 1)
+                                     trav_cdir4, trav_sdir4, self.footH24, 1)
 
         #if PRINT_DEBUG_IK:
         #    print("%u %u " % (s42pos, s43pos))
@@ -280,13 +281,13 @@ class Gaits():
     #def turnCode(short my_turn_dir, int16_t loopLength, int16_t half_loopLength):
     def turn_code(self, my_turn_dir, loopLength, half_loopLength, now1, now2, now3, now4):
         # uint8_ts
-        footH13 = 0
-        footH24 = 0
+        self.footH13 = 0
+        self.footH24 = 0
 
-        footH13 = calc_foot_h(now1, FH_TURN, ALL_FEET_DOWN_TIME_FRAC_TURNING, half_loopLength, TRANSITION_FRAC_TURNING, FH_FRAC_TURN)
-        footH24 = calc_foot_h(now4, FH_TURN, ALL_FEET_DOWN_TIME_FRAC_TURNING, half_loopLength, TRANSITION_FRAC_TURNING, FH_FRAC_TURN)
+        self.footH13 = calc_foot_h(now1, FH_TURN, ALL_FEET_DOWN_TIME_FRAC_TURNING, half_loopLength, TRANSITION_FRAC_TURNING, FH_FRAC_TURN)
+        self.footH24 = calc_foot_h(now4, FH_TURN, ALL_FEET_DOWN_TIME_FRAC_TURNING, half_loopLength, TRANSITION_FRAC_TURNING, FH_FRAC_TURN)
 
-        print("\n%d" % (footH24))
+        print("\n%d" % (self.footH24))
 
 
         #///Now change the now variables so that they track a triangle wave instead of a sawtooth wave
@@ -309,10 +310,10 @@ class Gaits():
     #        self.doLegKinem( myT, mys2pos, mys3pos, mys4pos, posSwap, \
     #     cos_s1Ang, sin_s1Ang, my_trav_cdir, my_trav_sdir, \
     #     myFootH, myTrav, debug)
-        self.s12pos, self.s13pos, self.s14pos = self.doLegKinem(now3, 1, 0, 0, 0, 0, footH13, 0)
-        self.s22pos, self.s23pos, self.s24pos = self.doLegKinem(now2, -1, 0, 0, 0, 0, footH24, 0)
-        self.s32pos, self.s33pos, self.s34pos = self.doLegKinem(now3, 1, 0, 0, 0, 0, footH13, 0)
-        self.s42pos, self.s43pos, self.s44pos = self.doLegKinem(now4, -1, 0, 0, 0, 0, footH24, 1)
+        self.s12pos, self.s13pos, self.s14pos = self.doLegKinem(now3, 1, 0, 0, 0, 0, self.footH13, 0)
+        self.s22pos, self.s23pos, self.s24pos = self.doLegKinem(now2, -1, 0, 0, 0, 0, self.footH24, 0)
+        self.s32pos, self.s33pos, self.s34pos = self.doLegKinem(now3, 1, 0, 0, 0, 0, self.footH13, 0)
+        self.s42pos, self.s43pos, self.s44pos = self.doLegKinem(now4, -1, 0, 0, 0, 0, self.footH24, 1)
 
     #/////// end turnCode()
 
@@ -358,11 +359,19 @@ class Gaits():
         alph1 = acos(len24x/L24)
         # We use len24y's sign because angle 3-4-horizontal is either alph2 + alph1 or alph2 - alph1
         # depending on whether point 4 is below or above point 2, respectively.
+        # We also do this with alph3 but end up subtracting alph1
         alph1 = copysign(alph1, len24y)
 
-        # alph2 is the angle of 3-4-2
         #angle... Law of cosines: cos(C) = (a a + b b - c c) / (2 a b)
+        # alph2 is the angle of 3-4-2
         alph2 = acos( (sqL34 + sqL24 - sqL23) / ( 2 * self.L34 * L24 ) )
+        # alph3 is the angle of 3-2-4
+        alph3 = acos( (sqL23 + sqL24 - sqL34) / ( 2 * self.L23 * L24 ) )
+
+        #DEBUG
+        self.alph1 = alph1
+        self.alph2 = alph2
+        self.alph3 = alph3
 
         if PRINT_DEBUG_IK and debug == 1:
             print("IK: %u _ %u %u %f %f  ", myFootH, len24x, len24y, L24, alph1*57.3)
@@ -372,8 +381,10 @@ class Gaits():
         #/////////
 
         # Sine and cosine of angle between 4-3 and horizontal
-        c_alph1plus2 = cos(alph2 + alph1) #float
-        s_alph1plus2 = sin(alph2 + alph1) #float
+        c_alph1plus2 = cos(alph2 + alph1)
+        s_alph1plus2 = sin(alph2 + alph1)
+        c_alph3minus1 = cos(alph3 - alph1)
+        s_alph3minus1 = sin(alph3 - alph1)
 
         # OLD:
         # Determine and create leg segment vectors
@@ -382,17 +393,35 @@ class Gaits():
 
         # NOTE replaced with self.v12.
         # TODO weird negative; origin at joint 2 axis?
-        #v12 = [-1, 0] # Assuming always horiz, but measured from vertical.
 
-        v12vert = [0, 1]
-        v23 = [self.L12 - (legLen - self.L34 * c_alph1plus2),
-               bodyH - ((myFootH + self.L45) + self.L34 * s_alph1plus2)]
-        v34 = [-self.L34 * c_alph1plus2,
+        # REDOING THE VECTORS HERE; Origin is below servo1, at ground height. Vectors go to the right; mirror of pic at top
+        # gndpt = [0,0]
+        # vgnd_1 = [0, bodyH]
+        #v12 = [L12, 0] # Assuming always horiz, but measured from vertical.
+        v12vert = [0, 1] # Just 90 degrees from v12, up
+        #v23 = [self.L12 - (legLen - self.L34 * c_alph1plus2),
+        #v23 = [legLen - self.L12 - self.L34 * c_alph1plus2),
+        v23 = [self.L23 * c_alph3minus1,
+               self.L23 * s_alph3minus1]
+               #bodyH - ((myFootH + self.L45) + self.L34 * s_alph1plus2)]
+               #bodyH - ((myFootH + self.L45) + self.L34 * s_alph1plus2)]
+        #v34 = [-self.L34 * c_alph1plus2, # legLen - self.L12 - v23[0]
+        v34 = [self.L34 * c_alph1plus2, # legLen - self.L12 - v23[0]
                self.L34 * s_alph1plus2]
         #self.v12 = v12
         self.v23 = v23
         self.v34 = v34
-        #v12 = array('i', [-1, 0]) # Assuming always horiz, but measured from vertical.
+
+   #     #v12 = [-1, 0] # Assuming always horiz, but measured from vertical.
+   #     v12vert = [0, 1]
+   #     v23 = [self.L12 - (legLen - self.L34 * c_alph1plus2),
+   #            bodyH - ((myFootH + self.L45) + self.L34 * s_alph1plus2)]
+   #     v34 = [-self.L34 * c_alph1plus2,
+   #            self.L34 * s_alph1plus2]
+   #     #self.v12 = v12
+   #     self.v23 = v23
+   #     self.v34 = v34
+   #     #v12 = array('i', [-1, 0]) # Assuming always horiz, but measured from vertical.
 
         #v12vert = array('i', [0, 1])
         #v23 = array('f', [self.L12 -  (legLen - self.L34 * c_alph1plus2),
@@ -408,9 +437,10 @@ class Gaits():
         # For calculating the angles, we want both vectors v23 and v32... so we make v32 by inverting v23.
         v32 = [-1 * v23[0], -1 * v23[1]]
 
+# TODO redo these calculations to factor in my changed vectors?
         # Calculate the angles with scale factor 195.2 for radians ->  300deg/1022 scale
         #   .... Note that the offsetServo variables are sometimes negative.
-        mys2pos = 511 + posSwap * ( (pi/2.0 - v2d_AngleRadians(v23, v12vert) ) * 195.2 + offsetServo2) # 70.08
+        mys2pos = 511 + posSwap * ( (pi/2.0 - v2d_AngleRadians(v23, v12vert) ) * 195.2 + offsetServo2) # -237 #OLD:70.08
         mys3pos = 511 + posSwap * ((pi - v2d_AngleRadians(v34, v32)) * 195.2 + offsetServo3) #- 70.08)
         mys4pos = 511 - posSwap * ((v2d_AngleRadians(v34, v45) - pi/2) * -195.2 + offsetServo4) #+ 39.19)
         #mys4pos = 511 - posSwap * (v2d_AngleRadians(v34, v45) * 195.2 + offsetServo4) #+ 39.19)
