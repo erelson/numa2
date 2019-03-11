@@ -3,7 +3,7 @@ import struct
 #import os
 import sys
 
-
+# system-type dependent imports
 #sysname = os.uname().sysname
 sysname = sys.platform
 if sysname == 'linux' or sysname == 'win32':
@@ -621,8 +621,9 @@ class NumaMain(object):
 
 def main():
     x = NumaMain()
-    input("Waiting... (press enter)")
-    input("Now onwards! (press enter again)")
+    sleep_ms(3000)
+    #input("Waiting... (press enter)")
+    #input("Now onwards! (press enter again)")
     x.main()
 
 if __name__ == "__main__":
