@@ -27,7 +27,7 @@ if sysname == 'linux' or sysname == 'win32':
     from mock_hardware import MockMotorDriver as MotorDriver
     from mock_hardware import MockUART_Port_from_COM as UART_Port
     from mock_hardware import MockBusToQueue as Bus
-    print(UART_Port)
+    print("UART_PORT is:", UART_Port)
 
 elif sysname == 'pyboard':
     from stm_uart_port import UART_Port
@@ -41,7 +41,7 @@ import ax
 from helpers import clamp, speedPhaseFix
 from init import myServoReturnLevels, myServoSpeeds, initServoLims
 from commander import CommanderRx
-from poses import g8Stand, g8FeetDown, g8Flop, g8Crouch
+from poses import gen_numa2_legs, g8Stand, g8FeetDown, g8Flop, g8Crouch
 from IK import Gaits
 
 
@@ -97,6 +97,7 @@ class NumaMain(object):
     """
 
     def __init__(self,
+                 gaits,
                  cmdrbus=None,
                  axbus=None#, show=Bus.SHOW_PACKETS) # can print the packets...
             ):
@@ -113,6 +114,8 @@ class NumaMain(object):
 
         self.crx = CommanderRx()
         self.cmdrAlive = 0
+
+        self.gaits = gaits
 
         self.leg_ids = [11, 21, 31, 41,
                         12, 22, 32, 42,
@@ -165,9 +168,10 @@ class NumaMain(object):
         self.turnleft = False
         self.turn = False
 
-    def main(self):
+    def main(self, leg_geom):
+        """Main loop is `self.app_control()`"""
         self.app_init_hardware()
-        self.app_init_software()
+        self.app_init_software(leg_geom)
         oldLoopStart = 0
         print("Starting NUMA loop...")
         while True:
@@ -199,14 +203,14 @@ class NumaMain(object):
     # Initialise the software
     # returns TICK_COUNT, usec
     # TODO this silly loop thing needs to be rewritten
-    def app_init_software(self):
+    def app_init_software(self, leg_geom):
         print("It begins....")
-        self.gaits = Gaits()
 
+        # This can be used to set a replacement servo's ID in a pinch
         #ax12SetID(&servo1, 1)
 
         # Call gait for Standing
-        g8Stand(self.axbus, self.leg_ids)
+        g8Stand(self.gaits, self.axbus, self.leg_ids)
 
         myServoReturnLevels(self.axbus, all_ids=self.all_ids)
         print("ServoReturnLevelsSet!")
@@ -222,17 +226,21 @@ class NumaMain(object):
         self.turn_loops = 0 # TODO explain this variable
 
         self.standing = 1 # 0: not standing; 1-5 will lower feet; 6+: feet are down, and robot is standing
-        g8Stand(self.axbus, self.leg_ids)
+        g8Stand(self.gaits, self.axbus, self.leg_ids)
 
         return 0
 
     # This is the main loop
     #TICK_COUNT appControl(LOOP_COUNT loopCount, TICK_COUNT loopStart):
     def app_control(self, loopStart):
+        """
+
+        loopStart: float
+            Current clock time in microseconds
+        """
 
         # Stop IK and g8s from coinciding... make Numa stop in place.
-        # TODO do_gait is not used currently
-        #if self.walk == True:# and self.do_gait == True:
+        #if self.walk == True:
         #    g8Stand(self.axbus, self.leg_ids)
 
         # -------- Start Switch/Button-------
@@ -277,6 +285,7 @@ class NumaMain(object):
 
         self.bb_loader(loopStart)
 
+        # Get current commander command
         self.CmdrReadMsgs()
         self.cmdrAlive -= 1
         self.cmdrAlive = clamp(self.cmdrAlive, 0, CMDR_ALIVE_CNT)
@@ -298,7 +307,7 @@ class NumaMain(object):
         if self.panicbutton:
             self.flopCnt += 1
             if self.flopCnt >= LOOPS_B4_FLOP:
-                g8Crouch(self.axbus, self.leg_ids) # This disables torque to second servo in each leg
+                g8Crouch(self.gaits, self.axbus, self.leg_ids) # This disables torque to second servo in each leg
                 self.panic = True
                 print("Howdydoo? %d", self.flopCnt)
                 self.flopCnt = 0
@@ -322,9 +331,9 @@ class NumaMain(object):
             self.guns_firing_end_time = ticks_us() + GUNS_FIRING_DURATION
             self.loader_timeout_end = loopStart + LOADER_TIMEOUT_DURATION
 
-        # We check "panic" before anything else that might move the legs.
+        # We check "panic" before anything else that might move the legs
         if self.panic:
-            return 25000 #micro seconds
+            return 25000  # microseconds
 
         # Decrement turn_loops continuously
         if self.turn_loops > 0:
@@ -368,11 +377,12 @@ class NumaMain(object):
 
             # Not walking, and not turning, so stand!
             if walkSPD == 0 and self.turn_loops == 0:
-                g8Stand(self.axbus, self.leg_ids) # this is the end result already.
+                g8Stand(self.gaits, self.axbus, self.leg_ids) # this is the end result already.
                 self.walk = False
                 if self.standing < 6:
                     self.standing += 1
 
+            # Walking
             elif walkSPD > 0:
                 if PRINT_DEBUG:
                     print("walk! %f ", (walkDIR * 180.0 / pi))
@@ -398,7 +408,6 @@ class NumaMain(object):
                     #self.spdChngOffset = spdChngOffset%loopLength
                 self.walk = True
                 self.set_new_heading(int(walkDIR * 180.0 / pi))
-            #self.do_gait = False
         #////////////////////////////////////////
 
         self.half_loopLength = self.loopLength / 2
@@ -419,10 +428,10 @@ class NumaMain(object):
         #
         # The next few blocks are where we determine what gait to use.
 
-        # WALKING WITH IK via walkCode()
+        # WALKING WITH IK via walk_code()
         #if 0:  #Disables walking
         if self.walk == True and self.turn_loops == 0:
-            self.gaits.walkCode(self.loopLength, self.half_loopLength,
+            self.gaits.walk_code(self.loopLength, self.half_loopLength,
                                 self.travRate, self.double_travRate,
                                 now1, now2, now3, now4, self.ang_dir)
         #   #Do this in the middle of the calculations to give guns a better firing time accuracy
@@ -438,21 +447,21 @@ class NumaMain(object):
 
         elif self.standing > 0 and self.standing <= 5:
             # or g8Stand?
-            g8FeetDown(self.axbus, self.leg_ids)
+            g8FeetDown(self.gaits, self.axbus, self.leg_ids)
 
         elif self.turn_loops > 0 and self.walk == True:
             # or g8Stand?
-            g8FeetDown(self.axbus, self.leg_ids)
+            g8FeetDown(self.gaits, self.axbus, self.leg_ids)
 
 
         # Move all servos
         if self.walk == True or self.turn_loops > 0:
             self.axbus.sync_write(self.leg_ids, ax.GOAL_POSITION,
                     [struct.pack('<H', int(pos)) for pos in
-                               (self.gaits.s11pos, self.gaits.s21pos, self.gaits.s31pos, self.gaits.s41pos,
-                                self.gaits.s12pos, self.gaits.s13pos, self.gaits.s14pos, self.gaits.s22pos,
-                                self.gaits.s23pos, self.gaits.s24pos, self.gaits.s32pos, self.gaits.s33pos,
-                                self.gaits.s34pos, self.gaits.s42pos, self.gaits.s43pos, self.gaits.s44pos)])
+                       (self.gaits.s11pos, self.gaits.s21pos, self.gaits.s31pos, self.gaits.s41pos,
+                        self.gaits.s12pos, self.gaits.s13pos, self.gaits.s14pos, self.gaits.s22pos,
+                        self.gaits.s23pos, self.gaits.s24pos, self.gaits.s32pos, self.gaits.s33pos,
+                        self.gaits.s34pos, self.gaits.s42pos, self.gaits.s43pos, self.gaits.s44pos)])
 
         # TODO
         #if PRINT_IR_RANGE:
@@ -474,7 +483,7 @@ class NumaMain(object):
         #elif PRINT_DEBUG_IK == True and self.turn_loops > 0:
         #    print("")
 
-        return PROG_LOOP_TIME #45000 #micro seconds
+        return PROG_LOOP_TIME #45000 # microseconds
     #////////////////
     #/ End of Main Loop
     #////////////////
@@ -488,7 +497,7 @@ class NumaMain(object):
 
         #if not previously walking with IK...
         #if not self.walk: #TODO Not needed?
-        #    g8Stand(self.axbus, self.leg_ids)  #note: walk is now FALSE set walk after this.
+        #    g8Stand(self.gaits, self.axbus, self.leg_ids)  # Note: walk is now FALSE; set walk after this.
         #    ang_dir = new_dir
         #    # NEED TO SET TIMING HERE
         # End former indent
@@ -497,7 +506,7 @@ class NumaMain(object):
         #(abs(new_dir - self.ang_dir) % 360) #old
         if abs((new_dir - self.ang_dir + 180) % 360 - 180) >= 20:
 
-            g8Stand(self.axbus, self.leg_ids) # note: walk is now FALSE; g8Stand sets walk
+            g8Stand(self.gaits, self.axbus, self.leg_ids) # Note: walk is now FALSE; g8Stand sets walk
             self.ang_dir = new_dir
         # else update direction
         else:
@@ -620,11 +629,13 @@ class NumaMain(object):
 
 
 def main():
-    x = NumaMain()
+    leg_geom, leg1, leg2, leg3, leg4 = gen_numa2_legs()
+    gaits = Gaits(leg_geom, leg1, leg2, leg3, leg4)
+    x = NumaMain(gaits)
     sleep_ms(3000)
     #input("Waiting... (press enter)")
     #input("Now onwards! (press enter again)")
-    x.main()
+    x.main(leg_geom)
 
 if __name__ == "__main__":
     main()
