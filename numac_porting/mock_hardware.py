@@ -18,10 +18,13 @@ from bus import Bus#, BusError
 
 from collections import deque
 import logging  # prevents different threads' output from mixing
+import struct
 try:
     from Queue import Queue
 except ImportError:
     from queue import Queue
+
+import ax
 
 
 class MockUART_Port_from_COM():
@@ -65,7 +68,7 @@ class MockUART_Port_from_COM():
 
 
 class MockBusToQueue():
-    def __init__(self):
+    def __init__(self, unusedUART=None):
         self.queue = Queue() # TODO more setup?
 
     def get_queue(self):
@@ -134,3 +137,22 @@ class MockMotorDriver():
 #class MockBoard():
 #    def __init__(self):
 #        pass
+
+
+# Targeted at visualising (in jupyter notebooks) the various g8 pose functions in poses.py
+class MockBusToWriteList():
+    def __init__(self):
+        self.nvalues = 0
+        self.values = []
+
+    #def get_queue(self):
+    #    return self.queue
+
+    #def sync_write(self, ids_list, register_index, bytearray_list):
+    def sync_write(self, dev_ids, offset, values):
+        # The goal of this mock is simply to make the goal position values accessible
+        # After they've been calculated ... but then I realized these are positions and not angles
+        if offset != ax.GOAL_POSITION:
+            self.nvalues = len(values)
+            print("hmm", values[1],values[1][0])
+            self.values = [struct.unpack("<H", val) for val in values]
