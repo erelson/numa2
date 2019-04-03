@@ -37,6 +37,21 @@ Written for micropython, which is based on python 3.4 feature set.
 
 For minifying the code, uses `mnfy` (install with pip3)
 
+Testing:
+--------
+Step 1 is always `pyflakes`.
+
+*Testing the IK:* A few jupyter notebooks in `numac_porting/` are set up to
+allow tweaking the leg lengths and plotting the leg geometry as it moves through e.g.
+the walking gait.
+
+*Testing without servos:* A few key spots in the code have import checks to identify if
+code is running via python3 or micropython.  In the python3 case, some simple mocks
+are used to ignore some components.
+
+*Testing iteration speed of gait code:* As a crude early pass, `testing/test_iteration_speed.py`
+was written to test how fast the gait code could do iterations on the pyboard.
+The rough findings were 
 
 Uploading:
 ----------
@@ -44,6 +59,23 @@ Steps:
 
 1. Save everything in `numac_porting`
 2. Run the `create_upload_files.py` to copy just the files needed on robot, and to reduce their size:
-   `python3 create_upload_files.py`
+   ~~`python3 create_upload_files.py`~~
 3. Using Windows Explorer (? or better?) copy the created files in micropy-to-upload
 4. ???
+
+Possible enhancement:
+- Script-based upload
+- Generate new files in a new_uploads folder; compare them with the micropy-to-upload folder,
+  delete new_uploads files that are identical; copy non-identical files to micropy-to-upload
+  - Allows copying fewer files easily
+
+Interacting and testing with Pyboard
+-----------
+I find just using python print statements works pretty well for troubleshooting.
+To give myself an interactive session with the Pyboard, I use a saved PuTTY configuration
+like this:
+
+![putty](images/pyboard_putty.jpg "Simple putty configuration")
+
+Particularly useful is that `ctrl + d` will actually do a software reset of the Pyboard,
+easily letting me test the code from its start.
