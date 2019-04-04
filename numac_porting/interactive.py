@@ -18,6 +18,8 @@ from pydypackets.PyDyLogger import LoggerClass
 from pydypackets.PyDyPlotter import Plotter
 
 from numa import NumaMain
+from poses import gen_numa2_legs#, g8Stand, g8FeetDown, g8Flop, g8Crouch
+from IK import Gaits
 
 
 def main(args):
@@ -73,7 +75,10 @@ def main(args):
     axbus = MockBusToQueue()
     axqueue = axbus.get_queue()
 
-    numa = NumaMain(cmdrbus=uart_from_cmdr, axbus=axbus)
+    leg_geom, leg1, leg2, leg3, leg4 = gen_numa2_legs()
+    gaits = Gaits(leg_geom, leg1, leg2, leg3, leg4)
+
+    numa = NumaMain(gaits, cmdrbus=uart_from_cmdr, axbus=axbus)
 
     # Hardcoding these, which are normally config params for PyDyPackets
     # TODO confirm these
@@ -83,7 +88,7 @@ def main(args):
     #
     lgr = LoggerClass(args)
     plotqueue = Queue()
-    process_robot = Process(target=numa.main, daemon=True)
+    process_robot = Process(target=numa.main, args=(leg_geom,), daemon=True)
     ###process_lgr = Process(target=lgr.logger_method, kwargs={"read_queue": axqueue}, daemon=True) # writes to file
     process_lgr = Process(target=lgr.logger_method, kwargs={"read_queue": axqueue, "write_queue": plotqueue}, daemon=True)
     #process_plotter = Process(target=lgr.logger_method, kwargs={"read_queue": axqueue, "write_queue": plotqueue}, daemon=True)
@@ -145,7 +150,7 @@ if __name__ == '__main__':
                             )#formatter_class=RawTextHelpFormatter)
 
     parser.add_argument('-p', '--port', action="store",  default="COM6",
-            help="COM/serial port to read packets from. Default: %(default)s")
+            help="COM/serial port to read commander packets from. Default: %(default)s")
     parser.add_argument('-b', '--baud', action="store",
             default=38400, help="Baud rate to use for serial port. Default: %(default)s")
 

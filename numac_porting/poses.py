@@ -26,7 +26,6 @@ def g8Stand(gait, axbus, leg_ids):
     gait.s41pos, gait.s42pos, gait.s43pos, gait.s44pos = \
             gait.leg4.get_pos_from_angle(gait.leg4.s1_center_angle, -45, 110, 0)
 
-    print(s41pos, s42pos)
     axbus.sync_write(leg_ids, ax.GOAL_POSITION,
             [struct.pack('<H', int(pos)) for pos in
                        (gait.s11pos, gait.s21pos, gait.s31pos, gait.s41pos,
