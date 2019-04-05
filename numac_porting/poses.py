@@ -16,15 +16,18 @@ RAD_TO_ANGLE = 180./pi
 
 # Send neutral standing positions to all servos.
 def g8Stand(gait, axbus, leg_ids):
+    a2 = 45
+    a3 = -110
+    a4 = 0
 
     gait.s11pos, gait.s12pos, gait.s13pos, gait.s14pos = \
-            gait.leg1.get_pos_from_angle(gait.leg1.s1_center_angle, -45, 110, 0)
+            gait.leg1.get_pos_from_angle(gait.leg1.s1_center_angle, a2, a3, a4)
     gait.s21pos, gait.s22pos, gait.s23pos, gait.s24pos = \
-            gait.leg2.get_pos_from_angle(gait.leg2.s1_center_angle, -45, 110, 0)
+            gait.leg2.get_pos_from_angle(gait.leg2.s1_center_angle, a2, a3, a4)
     gait.s31pos, gait.s32pos, gait.s33pos, gait.s34pos = \
-            gait.leg3.get_pos_from_angle(gait.leg3.s1_center_angle, -45, 110, 0)
+            gait.leg3.get_pos_from_angle(gait.leg3.s1_center_angle, a2, a3, a4)
     gait.s41pos, gait.s42pos, gait.s43pos, gait.s44pos = \
-            gait.leg4.get_pos_from_angle(gait.leg4.s1_center_angle, -45, 110, 0)
+            gait.leg4.get_pos_from_angle(gait.leg4.s1_center_angle, a2, a3, a4)
 
     axbus.sync_write(leg_ids, ax.GOAL_POSITION,
             [struct.pack('<H', int(pos)) for pos in
@@ -40,16 +43,19 @@ def g8Stand(gait, axbus, leg_ids):
 
 # Send standing positions to all servos. BUT don't rotate legs to center position
 def g8FeetDown(gait, axbus, leg_ids):
-    # Don't seg positions to coax servos
+    a2 = -45
+    a3 = 110
+    a4 = 0
+    # Don't send positions to coax servos
     my_leg_ids = leg_ids[4:]
     _, gait.s12pos, gait.s13pos, gait.s14pos = \
-            gait.leg1.get_pos_from_angle(gait.leg1.s1_center_angle, -45, 110, 0)
+            gait.leg1.get_pos_from_angle(gait.leg1.s1_center_angle, a2, a3, a4)
     _, gait.s22pos, gait.s23pos, gait.s24pos = \
-            gait.leg2.get_pos_from_angle(gait.leg2.s1_center_angle, -45, 110, 0)
+            gait.leg2.get_pos_from_angle(gait.leg2.s1_center_angle, a2, a3, a4)
     _, gait.s32pos, gait.s33pos, gait.s34pos = \
-            gait.leg3.get_pos_from_angle(gait.leg3.s1_center_angle, -45, 110, 0)
+            gait.leg3.get_pos_from_angle(gait.leg3.s1_center_angle, a2, a3, a4)
     _, gait.s42pos, gait.s43pos, gait.s44pos = \
-            gait.leg4.get_pos_from_angle(gait.leg4.s1_center_angle, -45, 110, 0)
+            gait.leg4.get_pos_from_angle(gait.leg4.s1_center_angle, a2, a3, a4)
     axbus.sync_write(my_leg_ids, ax.GOAL_POSITION,
             [struct.pack('<H', int(pos)) for pos in
                        (gait.s12pos, gait.s22pos, gait.s32pos, gait.s42pos,
@@ -86,15 +92,18 @@ def g8Flop(gait, axbus, leg_ids):
     #s24pos = 511 #613-39)
     #s34pos = 511 #409+39)
     #s44pos = 511 #613-39)
+    a2 = -45
+    a3 = 110
+    a4 = 0
     # TODO I didn't change these yet
     gait.s11pos, gait.s12pos, gait.s13pos, gait.s14pos = \
-            gait.leg1.get_pos_from_angle(gait.leg1.s1_center_angle, -45, 110, 0)
+            gait.leg1.get_pos_from_angle(gait.leg1.s1_center_angle, a2, a3, a4)
     gait.s21pos, gait.s22pos, gait.s23pos, gait.s24pos = \
-            gait.leg2.get_pos_from_angle(gait.leg2.s1_center_angle, -45, 110, 0)
+            gait.leg2.get_pos_from_angle(gait.leg2.s1_center_angle, a2, a3, a4)
     gait.s31pos, gait.s32pos, gait.s33pos, gait.s34pos = \
-            gait.leg3.get_pos_from_angle(gait.leg3.s1_center_angle, -45, 110, 0)
+            gait.leg3.get_pos_from_angle(gait.leg3.s1_center_angle, a2, a3, a4)
     gait.s41pos, gait.s42pos, gait.s43pos, gait.s44pos = \
-            gait.leg4.get_pos_from_angle(gait.leg4.s1_center_angle, -45, 110, 0)
+            gait.leg4.get_pos_from_angle(gait.leg4.s1_center_angle, a2, a3, a4)
 
     axbus.sync_write(leg_ids, ax.GOAL_POSITION,
             [struct.pack('<H', int(pos)) for pos in
@@ -113,16 +122,19 @@ def g8Flop(gait, axbus, leg_ids):
 def g8Crouch(gait, axbus, leg_ids):
     my_leg_ids = leg_ids[4:]
 
+    a2 = -90
+    a3 = 110
+    a4 = 0
     # Don't set positions to coax servos
     my_leg_ids = leg_ids[4:]
     _, gait.s12pos, gait.s13pos, gait.s14pos = \
-            gait.leg1.get_pos_from_angle(gait.leg1.s1_center_angle, -90, 110, 0)
+            gait.leg1.get_pos_from_angle(gait.leg1.s1_center_angle, a2, a3, a4)
     _, gait.s22pos, gait.s23pos, gait.s24pos = \
-            gait.leg2.get_pos_from_angle(gait.leg2.s1_center_angle, -90, 110, 0)
+            gait.leg2.get_pos_from_angle(gait.leg2.s1_center_angle, a2, a3, a4)
     _, gait.s32pos, gait.s33pos, gait.s34pos = \
-            gait.leg3.get_pos_from_angle(gait.leg3.s1_center_angle, -90, 110, 0)
+            gait.leg3.get_pos_from_angle(gait.leg3.s1_center_angle, a2, a3, a4)
     _, gait.s42pos, gait.s43pos, gait.s44pos = \
-            gait.leg4.get_pos_from_angle(gait.leg4.s1_center_angle, -90, 110, 0)
+            gait.leg4.get_pos_from_angle(gait.leg4.s1_center_angle, a2, a3, a4)
 
 #    sleep_ms(2000) #probably too short, but a long wait is scary, too.
 
