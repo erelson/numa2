@@ -9,7 +9,7 @@ sysname = sys.platform
 if sysname == 'linux' or sysname == 'win32':
     # Mocks for non-pyboard use
     import time
-    def ticks_us(): return (time.time()%1.e4)*1.e3
+    def ticks_us(): return (time.time()%1.e4)*1.e6
     def ticks_diff(x, y): return x - y
     def sleep_us(x): return time.sleep(x/1.e6)
     def sleep_ms(x): return time.sleep(x/1.e3)
@@ -455,13 +455,21 @@ class NumaMain(object):
 
 
         # Move all servos
-        if self.walk == True or self.turn_loops > 0:
-            self.axbus.sync_write(self.leg_ids, ax.GOAL_POSITION,
-                    [struct.pack('<H', int(pos)) for pos in
-                       (self.gaits.s11pos, self.gaits.s21pos, self.gaits.s31pos, self.gaits.s41pos,
-                        self.gaits.s12pos, self.gaits.s13pos, self.gaits.s14pos, self.gaits.s22pos,
-                        self.gaits.s23pos, self.gaits.s24pos, self.gaits.s32pos, self.gaits.s33pos,
-                        self.gaits.s34pos, self.gaits.s42pos, self.gaits.s43pos, self.gaits.s44pos)])
+        try:
+            if self.walk == True or self.turn_loops > 0:
+                self.axbus.sync_write(self.leg_ids, ax.GOAL_POSITION,
+                        [struct.pack('<H', int(pos)) for pos in
+                           (self.gaits.s11pos, self.gaits.s21pos, self.gaits.s31pos, self.gaits.s41pos,
+                            self.gaits.s12pos, self.gaits.s13pos, self.gaits.s14pos, self.gaits.s22pos,
+                            self.gaits.s23pos, self.gaits.s24pos, self.gaits.s32pos, self.gaits.s33pos,
+                            self.gaits.s34pos, self.gaits.s42pos, self.gaits.s43pos, self.gaits.s44pos)])
+        except Exception:
+            for cnt, x in enumerate([self.gaits.s11pos, self.gaits.s21pos, self.gaits.s31pos, self.gaits.s41pos,
+                            self.gaits.s12pos, self.gaits.s13pos, self.gaits.s14pos, self.gaits.s22pos,
+                            self.gaits.s23pos, self.gaits.s24pos, self.gaits.s32pos, self.gaits.s33pos,
+                            self.gaits.s34pos, self.gaits.s42pos, self.gaits.s43pos, self.gaits.s44pos]):
+                print(cnt, x)
+
 
         # TODO
         #if PRINT_IR_RANGE:
