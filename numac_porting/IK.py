@@ -162,14 +162,14 @@ class Gaits():
         self.leg4 = leg4
 
         # TODO safe initial values?
-        self.s11pos = 0
-        self.s21pos = 0
-        self.s31pos = 0
-        self.s41pos = 0
-        self.s12pos = 0
-        self.s22pos = 0
-        self.s32pos = 0
-        self.s42pos = 0
+        self.s11pos = 511
+        self.s21pos = 511
+        self.s31pos = 511
+        self.s41pos = 511
+        self.s12pos = 511
+        self.s22pos = 511
+        self.s32pos = 511
+        self.s42pos = 511
         self.s13pos = 0
         self.s23pos = 0
         self.s33pos = 0
