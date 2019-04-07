@@ -190,11 +190,11 @@ def gen_numa2_legs():
             "aoffset3": 31.54 - 5.63, # off_b - off_h
             "a1stance": stance,
             "a1stance_rear": stance,
-            "L0": 110, # mm - pretty close to actual...
+            "L0": 110, # mm - pretty close to actual...  #TODO or is this supposed to be 135?
             "L12": 58,
-            "L23": 63,
-            "L34": 67,
-            "L45": 57,  # This is fake right?
+            "L23": 65, #63,
+            "L34": 130, #67,
+            "L45": 5,  # This is fake right?
             # mins/max are in degrees from actual servo center (not joint center?)
             "max1": 95,
             "min1": -10,
