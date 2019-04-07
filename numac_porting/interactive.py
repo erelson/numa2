@@ -105,18 +105,18 @@ def main(args):
 
     # Get an initial set of packets to create our Plotter with
     new_packets = []
-    # TODO arbitrary hope we get fewer than 3000 packets in that 1 second...
+    # TODO arbitrary; hope we get fewer than 3000 packets in that 1 second...
     while not plotqueue.empty() and len(new_packets) < 3000:
         new_packets.append(plotqueue.get())
     print("Initial packets from plotqueue:", len(new_packets))
-    print(plotqueue.empty())
 
-    pltr = Plotter() # TODO
-    print("happen yet?")
-    id_list = [11,12,13,21,22,23,31,32,33,41,42,43,51,52]
-    id_list = [11,12]
-    pltr.plot_trends(new_packets, id_list=id_list, make_plot=True)#False)
-    print("happen yet? yeah")
+    if not args.no_plot:
+        pltr = Plotter() # TODO
+        #print("happen yet?")
+        id_list = [11,12,13,21,22,23,31,32,33,41,42,43,51,52] # Full set
+        id_list = [11,12,13] # Partial instead
+        pltr.plot_trends(new_packets, id_list=id_list, make_plot=True, axis_extents=[0,200,100,900])#False)
+        #print("happen yet? yeah")
 
     try:
         #input("...")
@@ -134,10 +134,11 @@ def main(args):
             while not plotqueue.empty() and len(new_packets) < 30:
                 new_packets.append(plotqueue.get())
 
-            print("new packets from plotqueue:", len(new_packets))
-            pltr.parse_packets(new_packets)
+            if not args.no_plot:
+                print("new packets from plotqueue:", len(new_packets))
+                pltr.parse_packets(new_packets)
 
-            pltr.callback()
+                pltr.callback()
     except KeyboardInterrupt:
         print("Shutting down gracefully (TODO)")
 
@@ -153,6 +154,8 @@ if __name__ == '__main__':
             help="COM/serial port to read commander packets from. Default: %(default)s")
     parser.add_argument('-b', '--baud', action="store",
             default=38400, help="Baud rate to use for serial port. Default: %(default)s")
+    parser.add_argument('-n', '--no-plot', action="store_true",
+            help="Don't show/create plot. Use for faster/smoother simulation")
 
     args = parser.parse_args()
 
