@@ -73,25 +73,6 @@ def g8FeetDown(gait, axbus, leg_ids):
 def g8Flop(gait, axbus, leg_ids):
     # TODO unused
 
-    #s11pos = 639 + 20
-    #s21pos = 383 - 20
-    #s31pos = 639
-    #s41pos = 383
-
-    #s12pos = 358 - 105
-    #s22pos = 664 + 105
-    #s32pos = 358 - 105
-    #s42pos = 664 + 105
-
-    #s13pos = 358 - 130
-    #s23pos = 664 + 130
-    #s33pos = 358 - 130
-    #s43pos = 664 + 130
-
-    #s14pos = 511 #409+39)
-    #s24pos = 511 #613-39)
-    #s34pos = 511 #409+39)
-    #s44pos = 511 #613-39)
     a2 = 45
     a3 = -110
     a4 = 0
@@ -190,7 +171,7 @@ def g8Crouch(gait, axbus, leg_ids):
 #      |                 \_______|1        ___            
 #      |                  2      |_______    |            
 #      |                                     |- bodyH 
-#      |5                                  __|            
+#      |5      TODO mirror this            __|            
 #
 #
 #      |___________legLen________|
@@ -214,6 +195,16 @@ def gen_numa2_legs():
             "L23": 63,
             "L34": 67,
             "L45": 57,  # This is fake right?
+            # mins/max are in degrees from actual servo center (not joint center?)
+            "max1": 95,
+            "min1": -10,
+            "max2": 100,
+            "min2": -70,
+            "max3": 10, #90,
+            "min3": -140, #-20,
+            #
+            "joint2sign": -1,
+            "joint3sign": 1,
             }
     leg_model = LegGeom(offsets_dict)
 
@@ -225,10 +216,7 @@ def gen_numa2_legs():
 
     return leg_model, leg1, leg2, leg3, leg4
 
-# offset1: Varies per leg + or - 45, + or -
-# offset2: -31.54
-# offset3: -31.54
-# offset4: N/A
+
 class LegGeom(object):
     """
 
@@ -241,7 +229,6 @@ class LegGeom(object):
 
     """
 
-    #def __init__(self, aoffset1, aoffset2, aoffset3, aoffset4=None):
     def __init__(self, offsets_dict):
 
         self.L0 =  offsets_dict.pop("L0")
@@ -250,12 +237,16 @@ class LegGeom(object):
         self.L34 = offsets_dict.pop("L34")
         self.L45 = offsets_dict.pop("L45")
 
-        # Offsets are specified in degrees, then converted to radians
-        # TODO validate direction is +/- 1 # ?????
-        self.aoffset1 = pi / 180. * offsets_dict.pop("aoffset1")
-        self.aoffset2 = pi / 180. * offsets_dict.pop("aoffset2")
-        self.aoffset3 = pi / 180. * offsets_dict.pop("aoffset3")
-        self.aoffset4 = pi / 180. * offsets_dict.pop("aoffset4", 0)
+        # Offsets are specified in degrees
+        self.aoffset1 = offsets_dict.pop("aoffset1")
+        self.aoffset2 = offsets_dict.pop("aoffset2")
+        self.aoffset3 = offsets_dict.pop("aoffset3")
+        self.aoffset4 = offsets_dict.pop("aoffset4", 0)
+
+        # +1 if servo is on non-moving side of joint, -1 if servo is on moving side.
+        self.joint2sign = offsets_dict.pop("joint2sign", 1)
+        self.joint3sign = offsets_dict.pop("joint3sign", 1)
+        self.joint4sign = offsets_dict.pop("joint4sign", 1)
 
         # Stance is offset from default 45 degree leg direction. Positive stance puts
         # forward legs more forward and rear legs more rearward
@@ -273,9 +264,7 @@ class LegGeom(object):
         
         Note: Generally combined with an offset representing the servo's center position
         """
-        #return 511 + angle/150.0 * 511 # Degrees
-        return int(angle/150.0 * 512) # Degrees
-        #return 511 + angle/(5/12. * pi) * 511 # TODO verify; # Radians
+        return int(angle/150.0 * 512) # Degrees -> servo position
 
 
 class LegDef(object):
@@ -297,7 +286,6 @@ class LegDef(object):
 
         # degrees
         a1_stance_offset = self.leg_geom.a1stance if front_leg else self.leg_geom.a1stance_rear
-        #a1_mount_offset = self.leg_geom.aoffset1
 
         # Set per-joint position functions based on servo type
         self.pos1 = leg_geom.pos_lookup[offsets_dict.pop("servo1_type", "ax12")]
@@ -319,14 +307,15 @@ class LegDef(object):
         # degrees
         positions = [
                self.s1_center + self.pos1(a1),
-               self.s2_center + self.pos2(self.s2_sign * a2),
-               self.s3_center + self.pos3(self.s3_sign * a3),
+               self.s2_center + self.pos2(self.s2_sign * self.leg_geom.joint2sign * a2),
+               self.s3_center + self.pos3(self.s3_sign * self.leg_geom.joint3sign * a3),
         ]
 
-        if a4:
-            positions.append(self.leg_geom.pos4(self.s4_sign * (a4 + self.leg_geom.aoffset4)))
+        if a4 and self.s4_sign:
+            positions.append(self.s4_center + self.pos4(
+                self.s4_sign * self.leg_geom.joint4sign * a4))
         else:
-            positions.append(512)
+            positions.append(self.s4_center)
 
         # TODO check limits
 
@@ -336,12 +325,13 @@ class LegDef(object):
         # Current convention is we convert all angles from radians to degrees
         positions = [
                self.s1_center + self.pos1(RAD_TO_ANGLE * a1),
-               self.s2_center + self.pos2(RAD_TO_ANGLE * self.s2_sign * a2),
-               self.s3_center + self.pos3(RAD_TO_ANGLE * self.s3_sign * a3),
-                ]
+               self.s2_center + self.pos2(RAD_TO_ANGLE * self.s2_sign * self.leg_geom.joint2sign * a2),
+               self.s3_center + self.pos3(RAD_TO_ANGLE * self.s3_sign * self.leg_geom.joint3sign * a3),
+        ]
 
         if a4 and self.s4_sign:
-            positions.append(self.s4_center + self.pos4(RAD_TO_ANGLE * self.s4_sign * a4))
+            positions.append(self.s4_center + self.pos4(
+                RAD_TO_ANGLE * self.s4_sign * self.leg_geom.joint4sign * a4))
         else:
             positions.append(self.s4_center)
 
