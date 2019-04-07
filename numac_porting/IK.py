@@ -107,7 +107,8 @@ TRANSITION_FRAC_TURNING = ALL_FEET_DOWN_TIME_FRAC_TURNING + 0.28
 #      |___________legLen________|
 
 # Leg constants for Numa1
-defaultbodyH = 150 #130 + 20 # mm
+#defaultbodyH = 150 #130 + 20 # mm  # Numa
+defaultbodyH = 83 # Numa2
 
 #defaultL0 = 105 + 5 # mm - pretty close to actual...
 #defaultL12 = 58
@@ -286,10 +287,10 @@ class Gaits():
         #                        self.cos_servo41Ang, self.sin_servo41Ang, 1)
     #def doLegKinem(self, myT, leg, trav_cdir, trav_sdir,
     #         footH, cos_s1Ang=None, sin_s1Ang=None, debug=0):
-        s12ang, s13ang, s14ang = self.doLegKinem(now3, self.leg1, trav_cdir1, trav_sdir1, self.footH13, self.cos_servo11Ang, self.sin_servo11Ang)
-        s22ang, s23ang, s24ang = self.doLegKinem(now2, self.leg2, trav_cdir2, trav_sdir2, self.footH24, self.cos_servo21Ang, self.sin_servo21Ang)
-        s32ang, s33ang, s34ang = self.doLegKinem(now3, self.leg3, trav_cdir3, trav_sdir3, self.footH13, self.cos_servo31Ang, self.sin_servo31Ang)
-        s42ang, s43ang, s44ang = self.doLegKinem(now2, self.leg4, trav_cdir4, trav_sdir4, self.footH24, self.cos_servo41Ang, self.sin_servo41Ang, debug=1)
+        s12ang, s13ang, s14ang = self.doLegKinem(self.leg1, trav_cdir1, trav_sdir1, self.footH13, self.cos_servo11Ang, self.sin_servo11Ang)
+        s22ang, s23ang, s24ang = self.doLegKinem(self.leg2, trav_cdir2, trav_sdir2, self.footH24, self.cos_servo21Ang, self.sin_servo21Ang)
+        s32ang, s33ang, s34ang = self.doLegKinem(self.leg3, trav_cdir3, trav_sdir3, self.footH13, self.cos_servo31Ang, self.sin_servo31Ang)
+        s42ang, s43ang, s44ang = self.doLegKinem(self.leg4, trav_cdir4, trav_sdir4, self.footH24, self.cos_servo41Ang, self.sin_servo41Ang, debug=1)
 
 
         # Calculate coax servo positions
@@ -320,29 +321,30 @@ class Gaits():
     def turn_code(self, turn_dir, loopLength, half_loopLength, now1, now2, now3, now4):
         """Implement turning by modifying foot heights and turning coax servo"""
 
+        # TODO verify calc_foot_h() takes sawtooth wave and not triangle wave...
         self.footH13 = calc_foot_h(now1, FH_TURN, ALL_FEET_DOWN_TIME_FRAC_TURNING, half_loopLength, TRANSITION_FRAC_TURNING, FH_FRAC_TURN)
         self.footH24 = calc_foot_h(now4, FH_TURN, ALL_FEET_DOWN_TIME_FRAC_TURNING, half_loopLength, TRANSITION_FRAC_TURNING, FH_FRAC_TURN)
-
-        print("\n%d" % (self.footH24))
 
         # Now change the now2 and now3 so that they track a triangle wave instead of a sawtooth wave
         if now2 >= half_loopLength:         # Goes from 0ms...5000ms
             now2 = loopLength - now2     # then 5000ms...0ms
         if now3 >= half_loopLength:         # Goes from 0ms...5000ms
             now3 = loopLength - now3     # then 5000ms...0ms
-        # now1 and now4 are identical to now3 and now2 respectively
-        turn_angle13 = TURN_ANGLE*(2*now3/loopLength - 0.5)
-        turn_angle24 = TURN_ANGLE*(2*now2/loopLength - 0.5)
+        # now1 and now4 are identical to now3 and now2 respectively so we just use those
+        turn_angle13 = pi/180 * TURN_ANGLE*(2*now3/loopLength - 0.5)
+        turn_angle24 = pi/180 * TURN_ANGLE*(2*now2/loopLength - 0.5)
+
+        print("\nfootH13: %d" % (self.footH13), "footH24: %d" % (self.footH24), "now3:", now3, "loopLength:", loopLength, turn_angle13, TURN_ANGLE)
 
     #   self.doLegKinem( myT, leg, cos_s1Ang, sin_s1Ang, trav_cdir, trav_sdir, footH, debug)
         #self.s12pos, self.s13pos, self.s14pos = self.doLegKinem(now3, self.leg1, 0, 0, self.footH13)
         #self.s22pos, self.s23pos, self.s24pos = self.doLegKinem(now2, self.leg2, 0, 0, self.footH24)
         #self.s32pos, self.s33pos, self.s34pos = self.doLegKinem(now3, self.leg3, 0, 0, self.footH13)
         #self.s42pos, self.s43pos, self.s44pos = self.doLegKinem(now4, self.leg4, 0, 0, self.footH24, debug=1)
-        s12ang, s13ang, s14ang = self.doLegKinem(now3, self.leg1, 0, 0, self.footH13)
-        s22ang, s23ang, s24ang = self.doLegKinem(now2, self.leg2, 0, 0, self.footH24)
-        s32ang, s33ang, s34ang = self.doLegKinem(now3, self.leg3, 0, 0, self.footH13)
-        s42ang, s43ang, s44ang = self.doLegKinem(now4, self.leg4, 0, 0, self.footH24, debug=1)
+        s12ang, s13ang, s14ang = self.doLegKinem(self.leg1, 0, 0, self.footH13)
+        s22ang, s23ang, s24ang = self.doLegKinem(self.leg2, 0, 0, self.footH24)
+        s32ang, s33ang, s34ang = self.doLegKinem(self.leg3, 0, 0, self.footH13)
+        s42ang, s43ang, s44ang = self.doLegKinem(self.leg4, 0, 0, self.footH24, debug=1)
 
         #self.s11pos = 511 + ( 45 + self.s11Aoff + turn_dir * TURN_ANGLE*(2*now3/loopLength - 0.5))*1024.0/300.0
         #self.s21pos = 511 + (-45 + self.s21Aoff + turn_dir * TURN_ANGLE*(2*now2/loopLength - 0.5))*1024.0/300.0
@@ -369,7 +371,7 @@ class Gaits():
     # Method does a few things depending on whether walking or turning, then invokes rest of IK
     # TODO seems I could split out the calculation of leg length from the calculation of
     # individual segment's relative angles? So far I made the vectors class level for access
-    def doLegKinem(self, myT, leg, trav_cdir, trav_sdir,
+    def doLegKinem(self, leg, trav_cdir, trav_sdir,
              footH, cos_s1Ang=None, sin_s1Ang=None, debug=0):
 
         # Turning (see turn_code())
