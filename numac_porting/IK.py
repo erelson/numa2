@@ -145,8 +145,7 @@ class Gaits():
         self.L34 = leg_geom.L34
         self.L45 = leg_geom.L45
         self.bodyH = bodyH
-        # TODO weird negative; origin at joint 2 axis?
-        self.v12 = [-1., 0]  # constant
+        self.v12 = [self.L12, 0]  # constant (until we implement per-servo body height)
         self.v23 = [0, 0]
         self.v34 = [0, 0]
 
@@ -387,19 +386,20 @@ class Gaits():
             # LEG LENGTH (length of projection of leg onto floor plane)
             legLen = sqrt( lenx * lenx + leny * leny ) # current length of leg
 
-        return self.genericLegKinem(leg, footH, legLen, debug=0)
+        return self.genericLegKinem(footH, legLen, debug=0)
 
-    # Method does IK calculations for the non-coax parts of a leg. returns AX12 positions
-    def genericLegKinem(self, leg, footH, legLen, debug=0):
+    # Method does IK calculations for the non-coax parts of a leg. returns joint angles in radians
+    def genericLegKinem(self, footH, legLen, debug=0):
         """
-        leg : LegDef
         """
-        # now x y are side view of leg
-        len24x = legLen - self.L12 #uint16_t
-        len24y = self.bodyH - (self.L45 + footH) # body height minus height of point 4; could factor in foot angle
+        # TODO(enhancment) to support per-servo bodyH, will need to calculate v12 differently
+        # x y are side view of leg
+        len24x = legLen - self.L12
+        len24y = self.bodyH - (self.L45 + footH) # body height minus height of point 4
         L24 = sqrt(len24x * len24x + len24y * len24y) # Length between points 2 and 4 in leg
         sqL24 = L24*L24
 
+        ## Angles from which we find joint 3's x,y location and thus vectors 23 and 34
         # float angle between horizontal and hypotenuse (L24)
         alph1 = acos(len24x/L24)
         # We use len24y's sign because angle 3-4-horizontal is either alph2 + alph1 or alph2 - alph1
@@ -407,7 +407,7 @@ class Gaits():
         # We also do this with alph3 but end up subtracting alph1
         alph1 = copysign(alph1, len24y)
 
-        #angle... Law of cosines: cos(C) = (a a + b b - c c) / (2 a b)
+        # To get angles of 2-3-4 triangle... Law of cosines: cos(C) = (a a + b b - c c) / (2 a b)
         # alph2 is the angle of 3-4-2
         alph2 = acos( (self.sqL34 + sqL24 - self.sqL23) / ( 2 * self.L34 * L24 ) )
         # alph3 is the angle of 3-2-4
@@ -418,67 +418,33 @@ class Gaits():
         self.alph2 = alph2
         self.alph3 = alph3
 
-        if PRINT_DEBUG_IK and debug == 1:
-            print("IK: %u _ %u %u %f %f  ", footH, len24x, len24y, L24, alph1*57.3)
-
         # Sine and cosine of angle between 4-3 and horizontal
         c_alph1plus2 = cos(alph2 + alph1)
         s_alph1plus2 = sin(alph2 + alph1)
+        #
         c_alph3minus1 = cos(alph3 - alph1)
         s_alph3minus1 = sin(alph3 - alph1)
 
-        # OLD:
-        # Determine and create leg segment vectors
-        # For diagram of math, see: .................. .nb
-        #Orientation: Am I using the XY plane, not the (-X,Y) plane? YES
-
-        # NOTE replaced with self.v12.
-        # TODO weird negative; origin at joint 2 axis?
-
-        # REDOING THE VECTORS HERE; Origin is below servo1, at ground height. Vectors go to the right; mirror of pic at top
-        # gndpt = [0,0]
-        # vgnd_1 = [0, bodyH]
-        #v12 = [L12, 0] # Assuming always horiz, but measured from vertical.
-        v12vert = [0, 1] # Just 90 degrees from v12, up
-        #v23 = [self.L12 - (legLen - self.L34 * c_alph1plus2),
-        #v23 = [legLen - self.L12 - self.L34 * c_alph1plus2),
+        ## Leg vectors from which we'll calculate joint angles
         v23 = [self.L23 * c_alph3minus1,
                self.L23 * s_alph3minus1]
-               #bodyH - ((footH + self.L45) + self.L34 * s_alph1plus2)]
-               #bodyH - ((footH + self.L45) + self.L34 * s_alph1plus2)]
-        #v34 = [-self.L34 * c_alph1plus2, # legLen - self.L12 - v23[0]
-        v34 = [self.L34 * c_alph1plus2, # legLen - self.L12 - v23[0]
-               self.L34 * s_alph1plus2]
-        #self.v12 = v12
+        v34 = [self.L34 * c_alph1plus2,
+               -self.L34 * s_alph1plus2]  # TODO bad assumption if we're raising the leg into the air lol
         self.v23 = v23
         self.v34 = v34
 
+        # TODO refactor if we use this. It probably doesn't make sense right now.
         # To avoid problems with sign of angle being incorrectly handled by v2D_Angle
         # ... we instead compare a near right angle and later subtract Pi/2 radians
         v45 = [-1 , 0]
-        #v45 = array('i', [-1 , 0])
 
-        # For calculating the angles, we want both vectors v23 and v32...
-        # so we make v32 by inverting v23.
-        v32 = [-1 * v23[0], -1 * v23[1]]
-
-        # OLD
-# DONE? TODO redo these calculations to factor in my changed vectors?
-        # Calculate the servo positions with scale factor 195.2 for radians ->  300deg/1022 scale
-        #   .... Note that the offsetServo variables are sometimes negative.
-        #s2pos = 511 + posSwap * ( (pi/2.0 - v2d_AngleRadians(v23, v12vert) ) * 195.2 + offsetServo2) # -237 #OLD:70.08
-        #s3pos = 511 + posSwap * ((pi - v2d_AngleRadians(v34, v32)) * 195.2 + offsetServo3) #- 70.08)
-        #s4pos = 511 - posSwap * ((v2d_AngleRadians(v34, v45) - pi/2) * -195.2 + offsetServo4) #+ 39.19)
-
-        # NEW:
-        s2rad, s3rad, s4rad = ((pi/2.0 - v2d_AngleRadians(v23, v12vert)),
-                               (pi - v2d_AngleRadians(v34, v32)),
+        s2rad, s3rad, s4rad = ((v2d_AngleRadians(self.v12, v23)),
+                               (v2d_AngleRadians(v23, v34)),
                                (v2d_AngleRadians(v34, v45) - pi/2),)
-        #s4pos = 511 - posSwap * (v2d_AngleRadians(v34, v45) * 195.2 + offsetServo4) #+ 39.19)
 
         if PRINT_DEBUG_IK and debug == 1:
             print("_ %f *%f %f %d *%d %d ", v2d_AngleRadians(v23, self.v12),
-                    v2d_AngleRadians(v34, v32),
+                    v2d_AngleRadians(v23, v34),
                     v2d_AngleRadians(v34, v45),
                     s2rad,
                     s3rad,
@@ -486,23 +452,32 @@ class Gaits():
                     )
         return s2rad, s3rad, s4rad
 
-
-def v2d_Length(vec):
-    #if vec *is* normalised:
-    #    return 1.0
-    return sqrt(vec[0]*vec[0] + vec[1]*vec[1])
-
-# Find the dot product of two vectors
-def v2d_DotProduct(v1, v2):
-    #
-    return v1[0] * v2[0] + v1[1] * v2[1]
+# For alternate version of v2d_AngleRadians
+#def v2d_Length(vec):
+#    #if vec *is* normalised:
+#    #    return 1.0
+#    return sqrt(vec[0]*vec[0] + vec[1]*vec[1])
+#
+## Find the dot product of two vectors
+#def v2d_DotProduct(v1, v2):
+#    #
+#    return v1[0] * v2[0] + v1[1] * v2[1]
 
 def v2d_AngleRadians(v1, v2):
-    #
-    vDot = v2d_DotProduct(v1, v2) / (v2d_Length(v1) * v2d_Length(v2))
-    if vDot < -1.0:
-        vDot = -1.0
-    elif vDot >  1.0:
-        vDot = 1.0
+    # Calculate the change in angle going from V1 to V2, preserving sign.
+    a2 = atan2(v2[1], v2[0])
+    a1 = atan2(v1[1], v1[0])
+    print(a2, a1)
+    return a2 - a1
+    # Alternate method that doesn't preserve sign
+    # Calculate the dTheta going from v1 to v2 using:
+    # angle2 - angle 1
+    # Get the absolute angle between 0 and 180?
+    #vDot = v2d_DotProduct(v1, v2) / (v2d_Length(v1) * v2d_Length(v2))
+    ## Uhhh
+    #if vDot < -1.0:
+    #    vDot = -1.0
+    #elif vDot >  1.0:
+    #    vDot = 1.0
 
-    return acos(vDot)
+    #return acos(vDot)
