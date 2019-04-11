@@ -418,11 +418,8 @@ class NumaMain(object):
         #//////////////////////////
         # -------- Start Leg stuff-------
 
-        #the 'now' variables are sawtooth waves (or triangle waves???).
-        now2 = (ms - self.turnTimeOffset) % self.loopLength
-        now3 = (ms - self.turnTimeOffset +  self.half_loopLength) % self.loopLength
-        now4 = self.loopLength - (ms - self.turnTimeOffset) % self.loopLength
-        now1 = self.loopLength - (ms - self.turnTimeOffset + self.half_loopLength) % self.loopLength
+        # the 'now' variables are sawtooth waves (or triangle waves???).
+        now1, now2, now3, now4 = self.get_now(ms)
 
         # Above is where the commander input is interpretted.
         #
@@ -496,6 +493,12 @@ class NumaMain(object):
     #/ End of Main Loop
     #////////////////
 
+    def get_now(self, ms):
+        # the 'now' variables are sawtooth waves (or triangle waves???).
+        now2 = (ms - self.turnTimeOffset) % self.loopLength
+        now3 = (ms - self.turnTimeOffset +  self.half_loopLength) % self.loopLength
+        now4 = self.loopLength - (ms - self.turnTimeOffset) % self.loopLength
+        now1 = self.loopLength - (ms - self.turnTimeOffset + self.half_loopLength) % self.loopLength
 
     def set_new_heading(self, new_dir):
         # Calculate ang_dir (degrees); ranges from  ...
