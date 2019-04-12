@@ -230,7 +230,7 @@ class Gaits():
         self.footH13 = calc_foot_h(now2, FH, ALL_FEET_DOWN_TIME_FRAC, half_loopLength, TRANSITION_FRAC, FH_FRAC)
         self.footH24 = calc_foot_h(now3, FH, ALL_FEET_DOWN_TIME_FRAC, half_loopLength, TRANSITION_FRAC, FH_FRAC)
 
-        #Now change the now variables so that they track a triangle wave instead of a sawtooth wave
+        # Now change the now variables so that they track a triangle wave instead of a sawtooth wave
         if now2 >= half_loopLength:                # Goes from 0ms...5000ms
             now2 = loopLength - now2            # then 5000ms...0ms
         if now3 >= half_loopLength:                # Goes from 0ms...5000ms
@@ -250,40 +250,26 @@ class Gaits():
 
         # trav values are calculated at each time step
         # represent offset of foot position in walking direction from standing point of foot.
-        # travN is vector length in walking direction to offset foot position by
-        trav2 = ( double_travRate * (now2 / half_loopLength) ) - travRate
-        trav3 = ( double_travRate * (now3 / half_loopLength) ) - travRate
-        trav4 = ( double_travRate * (now4 / half_loopLength) ) - travRate
-        trav1 = ( double_travRate * (now1 / half_loopLength) ) - travRate
+        # travN is vector length in walking direction to offset default foot position by
+        self.trav2 = ( double_travRate * (now2 / half_loopLength) ) - travRate
+        self.trav3 = ( double_travRate * (now3 / half_loopLength) ) - travRate
+        self.trav4 = ( double_travRate * (now4 / half_loopLength) ) - travRate
+        self.trav1 = ( double_travRate * (now1 / half_loopLength) ) - travRate
 
         # Compute sines and cosines of trav#...
         # These are x and y components for offsetting foot position from default foot position.
-        trav_cdir1 = trav1 * cdir
-        trav_sdir1 = trav1 * sdir
+        trav_cdir1 = self.trav1 * cdir
+        trav_sdir1 = self.trav1 * sdir
 
-        trav_cdir2 = trav2 * cdir
-        trav_sdir2 = trav2 * sdir
+        trav_cdir2 = self.trav2 * cdir
+        trav_sdir2 = self.trav2 * sdir
 
-        trav_cdir3 = trav3 * cdir
-        trav_sdir3 = trav3 * sdir
+        trav_cdir3 = self.trav3 * cdir
+        trav_sdir3 = self.trav3 * sdir
 
-        trav_cdir4 = trav4 * cdir
-        trav_sdir4 = trav4 * sdir
+        trav_cdir4 = self.trav4 * cdir
+        trav_sdir4 = self.trav4 * sdir
 
-    #    self.doLegKinem( myT, leg, trav_cdir, trav_sdir, footH
-    #                     cos_s1Ang, sin_s1Ang, debug)
-        #self.s12pos, self.s13pos, self.s14pos = \
-        #        self.doLegKinem(now1, self.leg1, trav_cdir1, trav_sdir1, self.footH13,
-        #                        self.cos_servo11Ang, self.sin_servo11Ang, 0)
-        #self.s22pos, self.s23pos, self.s24pos = \
-        #        self.doLegKinem(now2, self.leg2, trav_cdir2, trav_sdir2, self.footH24,
-        #                        self.cos_servo21Ang, self.sin_servo21Ang, 0)
-        #self.s32pos, self.s33pos, self.s34pos = \
-        #        self.doLegKinem(now3, self.leg3, trav_cdir3, trav_sdir3, self.footH13,
-        #                        self.cos_servo31Ang, self.sin_servo31Ang, 0)
-        #self.s42pos, self.s43pos, self.s44pos = \
-        #        self.doLegKinem(now4, self.leg4, trav_cdir4, trav_sdir4, self.footH24,
-        #                        self.cos_servo41Ang, self.sin_servo41Ang, 1)
     #def doLegKinem(self, myT, leg, trav_cdir, trav_sdir,
     #         footH, cos_s1Ang=None, sin_s1Ang=None, debug=0):
         s12ang, s13ang, s14ang = self.doLegKinem(self.leg1, trav_cdir1, trav_sdir1, self.footH13, self.cos_servo11Ang, self.sin_servo11Ang)
@@ -291,21 +277,16 @@ class Gaits():
         s32ang, s33ang, s34ang = self.doLegKinem(self.leg3, trav_cdir3, trav_sdir3, self.footH13, self.cos_servo31Ang, self.sin_servo31Ang)
         s42ang, s43ang, s44ang = self.doLegKinem(self.leg4, trav_cdir4, trav_sdir4, self.footH24, self.cos_servo41Ang, self.sin_servo41Ang, debug=1)
 
-
-        # Calculate coax servo positions
+        # Calculate coax servo positions as combination of trav vector and default leg position vector
         # Note trav_sdir/cdir -> trav_[sdir|cdir]2 and trav_sdir/cdir[3|4]->trav_[sdir|cdir]3
-        s11ang = atan2(100 * self.sin_servo11Ang + trav_cdir3,
-                          100 * self.cos_servo11Ang + trav_sdir3)
-        s21ang = atan2(100 * self.sin_servo21Ang + trav_cdir2,
-                          100 * self.cos_servo21Ang + trav_sdir2)
-        s31ang = atan2(100 * self.sin_servo31Ang + trav_cdir3,
-                          100 * self.cos_servo31Ang + trav_sdir3)
-        s41ang = atan2(100 * self.sin_servo41Ang + trav_cdir2,
-                          100 * self.cos_servo41Ang + trav_sdir2)
-        self.s31pos = 511 + (195.3786 * atan2(100 * self.sin_servo31Ang + trav_cdir3, 100 * self.cos_servo31Ang + trav_sdir3) )
-        self.s41pos = 511 + (-613.8 + 195.3786 * atan2(100 * self.sin_servo41Ang + trav_cdir2, 100 * self.cos_servo41Ang + trav_sdir2) )
-        self.s11pos = 511 + ( 613.8 + 195.3786 * atan2(100 * self.sin_servo11Ang + trav_cdir3, 100 * self.cos_servo11Ang + trav_sdir3) )
-        self.s21pos = 511 + (195.3786 * atan2(100 * self.sin_servo21Ang + trav_cdir2, 100 * self.cos_servo21Ang + trav_sdir2) )
+        s11ang = atan2(self.L0 * self.sin_servo11Ang + trav_cdir3,
+                          self.L0 * self.cos_servo11Ang + trav_sdir3)
+        s21ang = atan2(self.L0 * self.sin_servo21Ang + trav_cdir2,
+                          self.L0 * self.cos_servo21Ang + trav_sdir2)
+        s31ang = atan2(self.L0 * self.sin_servo31Ang + trav_cdir3,
+                          self.L0 * self.cos_servo31Ang + trav_sdir3)
+        s41ang = atan2(self.L0 * self.sin_servo41Ang + trav_cdir2,
+                          self.L0 * self.cos_servo41Ang + trav_sdir2)
 
         self.s11pos, self.s12pos, self.s13pos, self.s14pos = \
                 self.leg1.get_pos_from_radians(s11ang, s12ang, s13ang, s14ang)
@@ -467,7 +448,6 @@ def v2d_AngleRadians(v1, v2):
     # Calculate the change in angle going from V1 to V2, preserving sign.
     a2 = atan2(v2[1], v2[0])
     a1 = atan2(v1[1], v1[0])
-    print(a2, a1)
     return a2 - a1
     # Alternate method that doesn't preserve sign
     # Calculate the dTheta going from v1 to v2 using:
