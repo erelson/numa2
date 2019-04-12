@@ -1,6 +1,6 @@
 # Python3 minify lib that is called 
 try:
-    import mnfy
+    import mnfy  # Only supports python3.4, nothing newer; no longer maintained
     HAVE_MNFY = True
 except ImportError:
     HAVE_MNFY = False
@@ -54,10 +54,13 @@ def write_minified(infile, outfile, minify=True, readable=False):
                     if commabuffer:
                         commabuffer += line.strip()
                         #if commabuffer[-1] != ",":
-                        if commabuffer[-1] not in "[(,":
+                        if "#" in line or commabuffer[-1] not in "[(,":
                             fw.write(commabuffer + "\n")
                             commabuffer = ""
                     #elif line.rstrip()[-1] == ",":
+                    elif "#" in line:
+                        fw.write(line)
+                        commabuffer = ""
                     elif line.rstrip()[-1] in "[(,":
                         commabuffer = line.rstrip()
                     else:
