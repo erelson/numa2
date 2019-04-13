@@ -7,6 +7,7 @@ import pylab
 
 #from IK import *
 from IK import ALL_FEET_DOWN_TIME_FRAC, TRANSITION_FRAC, FH_FRAC, FH, Gaits
+from poses import gen_numa2_legs
 
 NUMA_SERVO_LOOKUP = \
         [11, 12, 13, 14,
@@ -38,14 +39,15 @@ class Wrapper():
 
     def walk_angle(self, travRate=25, #mm
                       loopLength=10000, repeat_count=1):
-        """Invokes walkCode, which invokes doLegKinem
+        """Invokes walk_code, which invokes doLegKinem
         """
         self.times = []
         self.points = []
 
         half_loopLength = loopLength/2.0
         double_travRate = 2 * travRate
-        gait = Gaits()
+        leg_geom, leg1, leg2, leg3, leg4 = gen_numa2_legs()
+        gait = Gaits(leg_geom, leg1, leg2, leg3, leg4)
 
         gait.initTrig()
 
@@ -61,7 +63,7 @@ class Wrapper():
 
                 #calc_foot_h(now, foot_h_max, time_down_frac, half_loopLength, transition_frac, height_frac)
 
-                gait.walkCode(loopLength, half_loopLength, travRate, double_travRate, now1, now2, now3, now4, self.ang_dir)
+                gait.walk_code(loopLength, half_loopLength, travRate, double_travRate, now1, now2, now3, now4, self.ang_dir)
 
                 self.times.append(ms + offset)
                 self.points.append([gait.s11pos, gait.s12pos, gait.s13pos, gait.s14pos,
@@ -71,7 +73,7 @@ class Wrapper():
                                   )
 
         self.points = numpy.array(self.points)
-        print len(self.points)
+        print(len(self.points))
 
 
 STYLES = [
@@ -113,10 +115,10 @@ def plot(times, points, block=True, servos=None):
     # Single legend
     if not servos:
         lns = [ax1.plot(t, [x[n] for x in points], STYLES[n], label='servo{0}'.format(NUMA_SERVO_LOOKUP[n]))
-                for n in xrange(len(points[0]))]
+                for n in range(len(points[0]))]
     else:
         lns = [ax1.plot(t, [x[n] for x in points], STYLES[n], label='servo{0}'.format(NUMA_SERVO_LOOKUP[n]))
-                for n in xrange(len(points[0])) if str(NUMA_SERVO_LOOKUP[n]) in servos]
+                for n in range(len(points[0])) if str(NUMA_SERVO_LOOKUP[n]) in servos]
     ax1.legend()#lns, loc=0)
 
     ax1.set_title("Positions from {0}-{1}".format(times[0], times[-1]))
@@ -138,6 +140,6 @@ if __name__ == "__main__":
     run.walk_angle(repeat_count=args.repeat)
     #mypoints = [x[0::4] for x in run.points]
     mypoints = run.points
-    print mypoints[0]
+    print(mypoints[0])
     plot(run.times, mypoints, servos=args.servos)
-    print "hmm"
+    print("hmm")
