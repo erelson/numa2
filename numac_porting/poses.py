@@ -295,6 +295,7 @@ class LegDef(object):
 
         # Convert offsets in degrees to servo values
         self.s1_center_angle = self.s1_sign * (leg_geom.aoffset1 + a1_stance_offset)
+        self.s1_center_radians = self.s1_center_angle / RAD_TO_ANGLE
         self.s1_center = 512 + self.pos1(self.s1_center_angle)
         self.s2_center = 512 + self.pos2(self.s2_sign * leg_geom.aoffset2)
         self.s3_center = 512 + self.pos3(self.s3_sign * leg_geom.aoffset3)
@@ -304,11 +305,11 @@ class LegDef(object):
             self.s4_center = 512
 
     def get_pos_from_angle(self, a1, a2, a3, a4=None):
-        # degrees
+        # Angles are in degrees. Returns list of servo positions
         positions = [
-               self.s1_center + self.pos1(a1),
-               self.s2_center + self.pos2(self.s2_sign * self.leg_geom.joint2sign * a2),
-               self.s3_center + self.pos3(self.s3_sign * self.leg_geom.joint3sign * a3),
+                self.s1_center + self.pos1(a1),  # Remember to supply offset from center, not absolute angle
+                self.s2_center + self.pos2(self.s2_sign * self.leg_geom.joint2sign * a2),
+                self.s3_center + self.pos3(self.s3_sign * self.leg_geom.joint3sign * a3),
         ]
 
         if a4 and self.s4_sign:
@@ -324,9 +325,9 @@ class LegDef(object):
     def get_pos_from_radians(self, a1, a2, a3, a4=None):
         # Current convention is we convert all angles from radians to degrees
         positions = [
-               self.s1_center + self.pos1(RAD_TO_ANGLE * a1),
-               self.s2_center + self.pos2(RAD_TO_ANGLE * self.s2_sign * self.leg_geom.joint2sign * a2),
-               self.s3_center + self.pos3(RAD_TO_ANGLE * self.s3_sign * self.leg_geom.joint3sign * a3),
+                self.s1_center + self.pos1(RAD_TO_ANGLE * a1),
+                self.s2_center + self.pos2(RAD_TO_ANGLE * self.s2_sign * self.leg_geom.joint2sign * a2),
+                self.s3_center + self.pos3(RAD_TO_ANGLE * self.s3_sign * self.leg_geom.joint3sign * a3),
         ]
 
         if a4 and self.s4_sign:

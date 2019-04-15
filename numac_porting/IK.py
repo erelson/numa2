@@ -280,13 +280,13 @@ class Gaits():
         # Calculate coax servo positions as combination of trav vector and default leg position vector
         # Note trav_sdir/cdir -> trav_[sdir|cdir]2 and trav_sdir/cdir[3|4]->trav_[sdir|cdir]3
         s11ang = atan2(self.L0 * self.sin_servo11Ang + trav_cdir3,
-                          self.L0 * self.cos_servo11Ang + trav_sdir3)
+                          self.L0 * self.cos_servo11Ang + trav_sdir3) - self.leg1.s1_center_radians
         s21ang = atan2(self.L0 * self.sin_servo21Ang + trav_cdir2,
-                          self.L0 * self.cos_servo21Ang + trav_sdir2)
+                          self.L0 * self.cos_servo21Ang + trav_sdir2) - self.leg2.s1_center_radians
         s31ang = atan2(self.L0 * self.sin_servo31Ang + trav_cdir3,
-                          self.L0 * self.cos_servo31Ang + trav_sdir3)
+                          self.L0 * self.cos_servo31Ang + trav_sdir3) - self.leg3.s1_center_radians
         s41ang = atan2(self.L0 * self.sin_servo41Ang + trav_cdir2,
-                          self.L0 * self.cos_servo41Ang + trav_sdir2)
+                          self.L0 * self.cos_servo41Ang + trav_sdir2) - self.leg4.s1_center_radians
 
         self.s11pos, self.s12pos, self.s13pos, self.s14pos = \
                 self.leg1.get_pos_from_radians(s11ang, s12ang, s13ang, s14ang)

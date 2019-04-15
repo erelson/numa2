@@ -499,6 +499,7 @@ class NumaMain(object):
         now3 = (ms - self.turnTimeOffset +  self.half_loopLength) % self.loopLength
         now4 = self.loopLength - (ms - self.turnTimeOffset) % self.loopLength
         now1 = self.loopLength - (ms - self.turnTimeOffset + self.half_loopLength) % self.loopLength
+        return now1, now2, now3, now4
 
     def set_new_heading(self, new_dir):
         # Calculate ang_dir (degrees); ranges from  ...
