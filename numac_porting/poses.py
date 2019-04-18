@@ -195,11 +195,11 @@ def gen_numa2_legs():
             "L23": 65, #63,
             "L34": 130, #67,
             "L45": 5,  # This is fake right?
-            # mins/max are in degrees from actual servo center (not joint center?)
+            # mins/max are in degrees from actual servo center (not joint center!)
             "max1": 95,
             "min1": -10,
             "max2": 100,
-            "min2": -70,
+            "min2": -68,
             "max3": 10, #90,
             "min3": -140, #-20,
             #
@@ -254,10 +254,17 @@ class LegGeom(object):
         # Optional rear stance lets front legs and back legs have separate stance angle
         self.a1stance_rear = offsets_dict.pop("a1stance_rear", self.a1stance)
 
+        # Joint max/min angles
+        # TODO(enhancement): genericize for other servo types
+        self.max_angle = {}
+        self.min_angle = {}
+        for n in range(1,5):
+            self.max_angle[n] = offsets_dict.pop("max{0}".format(n), 150)
+            self.min_angle[n] = offsets_dict.pop("min{0}".format(n), -150)
+
         self.pos_lookup = {"ax12": self.ax12pos,
                            "ax12a": self.ax12pos,
         }
-
 
     def ax12pos(self, angle):
         """Return an angle converted from degrees into integer position values for the servo
@@ -273,7 +280,7 @@ class LegDef(object):
     accounting for orientation, etc.
     """
 
-    def __init__(self, leg_geom, offsets_dict, s1_sign, s2_sign, s3_sign, s4_sign=None, front_leg=True):
+    def __init__(self, leg_geom, offsets_dict, s1_sign, s2_sign, s3_sign, s4_sign=1, front_leg=True):
         """
         offsets_dict : dict
             Dictionary with keys 'servoX_type'.
@@ -293,13 +300,34 @@ class LegDef(object):
         self.pos3 = leg_geom.pos_lookup[offsets_dict.pop("servo3_type", "ax12")]
         self.pos4 = leg_geom.pos_lookup[offsets_dict.pop("servo4_type", "ax12")]
 
+        # This is so tedious, elegance would be cool.
+        # TODO non-AX-12 specific
+        self.s1max = 511 + self.s1_sign * self.pos1(leg_geom.max_angle[1])
+        self.s2max = 511 + self.s2_sign * self.pos2(leg_geom.max_angle[2])
+        self.s3max = 511 + self.s3_sign * self.pos3(leg_geom.max_angle[3])
+        self.s4max = 511 + self.s4_sign * self.pos4(leg_geom.max_angle[4])
+        self.s1min = 511 + self.s1_sign * self.pos1(leg_geom.min_angle[1])
+        self.s2min = 511 + self.s2_sign * self.pos2(leg_geom.min_angle[2])
+        self.s3min = 511 + self.s3_sign * self.pos3(leg_geom.min_angle[3])
+        self.s4min = 511 + self.s4_sign * self.pos4(leg_geom.min_angle[4])
+        # Note: 512 is the real center position per dynamixel wizard, but +/- 512
+        # will take us out of bounds...
+        self.s1max = self.s1max if self.s1max >= 0 else 0
+        self.s2max = self.s2max if self.s2max >= 0 else 0
+        self.s3max = self.s3max if self.s3max >= 0 else 0
+        self.s4max = self.s4max if self.s4max >= 0 else 0
+        self.s1min = self.s1min if self.s1min >= 0 else 0
+        self.s2min = self.s2min if self.s2min >= 0 else 0
+        self.s3min = self.s3min if self.s3min >= 0 else 0
+        self.s4min = self.s4min if self.s4min >= 0 else 0
+
         # Convert offsets in degrees to servo values
         self.s1_center_angle = self.s1_sign * (leg_geom.aoffset1 + a1_stance_offset)
         self.s1_center_radians = self.s1_center_angle / RAD_TO_ANGLE
         self.s1_center = 512 + self.pos1(self.s1_center_angle)
         self.s2_center = 512 + self.pos2(self.s2_sign * leg_geom.aoffset2)
         self.s3_center = 512 + self.pos3(self.s3_sign * leg_geom.aoffset3)
-        if self.s4_sign:
+        if leg_geom.aoffset4:
             self.s4_center = 512 + self.pos4(self.s4_sign * leg_geom.aoffset4)
         else:
             self.s4_center = 512
@@ -330,7 +358,7 @@ class LegDef(object):
                 self.s3_center + self.pos3(RAD_TO_ANGLE * self.s3_sign * self.leg_geom.joint3sign * a3),
         ]
 
-        if a4 and self.s4_sign:
+        if a4 and self.leg_geom.aoffset4:
             positions.append(self.s4_center + self.pos4(
                 RAD_TO_ANGLE * self.s4_sign * self.leg_geom.joint4sign * a4))
         else:

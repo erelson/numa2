@@ -214,7 +214,7 @@ class NumaMain(object):
 
         myServoReturnLevels(self.axbus, all_ids=self.all_ids)
         print("ServoReturnLevelsSet!")
-        initServoLims(self.axbus)
+        initServoLims(self.axbus, self.all_ids, self.gaits)
         print("ServoLimsSet!")
         myServoSpeeds(self.axbus, self.leg_ids, self.turret_ids)
         print("ServoSpeedsSet!")
@@ -294,8 +294,8 @@ class NumaMain(object):
         ms = (loopStart) / 1000 + self.spdChngOffset
 
         # We always move the turret to the position specified by the Commander.
-        self.axbus.sync_write(self.turret_ids, ax.GOAL_POSITION, [struct.pack('<H', self.tilt_pos),
-                                                                  struct.pack('<H', self.pan_pos)])
+        self.axbus.sync_write(self.turret_ids, ax.GOAL_POSITION, [struct.pack('<H', self.pan_pos),
+                                                                  struct.pack('<H', self.tilt_pos)])
 
         # dump temperatures
         #if fastturret:
@@ -647,7 +647,14 @@ def main():
     sleep_ms(3000)
     #input("Waiting... (press enter)")
     #input("Now onwards! (press enter again)")
-    x.main(leg_geom)
+    try:
+        x.main(leg_geom)
+    except:
+        print("Safely stopping gun!")
+        x.gunMotor.direct_set_speed(GUN_SPEED_OFF)
+        print("Safely stopping loader!")
+        x.ammoMotor.direct_set_speed(LOADER_SPEED_OFF)
+        raise
 
 if __name__ == "__main__":
     main()
