@@ -19,7 +19,7 @@ class Wrapper():
 
     def __init__(self,
                  timestep=20, # ms
-                 ang_dir=0.0,
+                 ang_dir=0.0, # degrees
                  foot_h_max=FH,
                  time_down_frac=ALL_FEET_DOWN_TIME_FRAC,
                  #half_loopLength=,
@@ -63,7 +63,10 @@ class Wrapper():
 
                 #calc_foot_h(now, foot_h_max, time_down_frac, half_loopLength, transition_frac, height_frac)
 
-                gait.walk_code(loopLength, half_loopLength, travRate, double_travRate, now1, now2, now3, now4, self.ang_dir)
+                if args.turn:
+                    gait.turn_code(1, loopLength, half_loopLength, now1, now2, now3, now4)
+                else:
+                    gait.walk_code(loopLength, half_loopLength, travRate, double_travRate, now1, now2, now3, now4, self.ang_dir)
 
                 self.times.append(ms + offset)
                 self.points.append([gait.s11pos, gait.s12pos, gait.s13pos, gait.s14pos,
@@ -132,7 +135,9 @@ if __name__ == "__main__":
     parser.add_argument("-s", "--servos", action="store", default=None, nargs="*",
                         help="Servo IDs to plot (as space delimited list of args)")
     parser.add_argument("-w", "--walkdir", action="store", default=0.0, type=float,
-                        help="Servo IDs to plot (as space delimited list of args)")
+                        help="Angle of direction to walk in (0 is forwards; degrees)")
+    parser.add_argument("-t", "--turn", action="store_true",
+                        help="Run turning gait instead of walking")
 
     args = parser.parse_args()
 
