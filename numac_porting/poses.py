@@ -17,7 +17,7 @@ RAD_TO_ANGLE = 180./pi
 # Send neutral standing positions to all servos.
 def g8Stand(gait, axbus, leg_ids):
     a2 = 45
-    a3 = -110
+    a3 = -120
     a4 = 0
 
     gait.s11pos, gait.s12pos, gait.s13pos, gait.s14pos = \
@@ -44,7 +44,7 @@ def g8Stand(gait, axbus, leg_ids):
 # Send standing positions to all servos. BUT don't rotate legs to center position
 def g8FeetDown(gait, axbus, leg_ids):
     a2 = 45
-    a3 = -110
+    a3 = -120
     a4 = 0
     # Don't send positions to coax servos
     my_leg_ids = leg_ids[4:]
@@ -74,7 +74,7 @@ def g8Flop(gait, axbus, leg_ids):
     # TODO unused
 
     a2 = 45
-    a3 = -110
+    a3 = -120
     a4 = 0
     # TODO I didn't change these yet
     gait.s11pos, gait.s12pos, gait.s13pos, gait.s14pos = \
@@ -190,7 +190,7 @@ def gen_numa2_legs():
             "aoffset3": 31.54 - 5.63, # off_b - off_h
             "a1stance": stance,
             "a1stance_rear": stance,
-            "L0": 110, # mm - pretty close to actual...  #TODO or is this supposed to be 135?
+            "L0": 135, # mm - pretty close to actual...  #TODO or is this supposed to be 135?
             "L12": 58,
             "L23": 65, #63,
             "L34": 130, #67,
@@ -302,20 +302,20 @@ class LegDef(object):
 
         # This is so tedious, elegance would be cool.
         # TODO non-AX-12 specific
-        self.s1max = 511 + self.s1_sign * self.pos1(leg_geom.max_angle[1])
-        self.s2max = 511 + self.s2_sign * self.pos2(leg_geom.max_angle[2])
-        self.s3max = 511 + self.s3_sign * self.pos3(leg_geom.max_angle[3])
-        self.s4max = 511 + self.s4_sign * self.pos4(leg_geom.max_angle[4])
-        self.s1min = 511 + self.s1_sign * self.pos1(leg_geom.min_angle[1])
-        self.s2min = 511 + self.s2_sign * self.pos2(leg_geom.min_angle[2])
-        self.s3min = 511 + self.s3_sign * self.pos3(leg_geom.min_angle[3])
-        self.s4min = 511 + self.s4_sign * self.pos4(leg_geom.min_angle[4])
+        s1lims = [511 + self.s1_sign * self.pos1(leg_geom.max_angle[1]), 511 + self.s1_sign * self.pos1(leg_geom.min_angle[1])]
+        s2lims = [511 + self.s2_sign * self.pos2(leg_geom.max_angle[2]), 511 + self.s2_sign * self.pos2(leg_geom.min_angle[2])]
+        s3lims = [511 + self.s3_sign * self.pos3(leg_geom.max_angle[3]), 511 + self.s3_sign * self.pos3(leg_geom.min_angle[3])]
+        s4lims = [511 + self.s4_sign * self.pos4(leg_geom.max_angle[4]), 511 + self.s4_sign * self.pos4(leg_geom.min_angle[4])]
+        s1lims.sort()
+        s2lims.sort()
+        s3lims.sort()
+        s4lims.sort()
+        self.s1min, self.s1max = s1lims
+        self.s2min, self.s2max = s2lims
+        self.s3min, self.s3max = s3lims
+        self.s4min, self.s4max = s4lims
         # Note: 512 is the real center position per dynamixel wizard, but +/- 512
         # will take us out of bounds...
-        self.s1max = self.s1max if self.s1max >= 0 else 0
-        self.s2max = self.s2max if self.s2max >= 0 else 0
-        self.s3max = self.s3max if self.s3max >= 0 else 0
-        self.s4max = self.s4max if self.s4max >= 0 else 0
         self.s1min = self.s1min if self.s1min >= 0 else 0
         self.s2min = self.s2min if self.s2min >= 0 else 0
         self.s3min = self.s3min if self.s3min >= 0 else 0

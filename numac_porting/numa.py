@@ -129,7 +129,8 @@ class NumaMain(object):
 
         self.flopCnt = 0 # Counter incremented by button presses, eventually disabling leg servos
 
-        self.loader_timeout_mode = 0 # 0 off, 1 on
+        self.loader_timeout_mode = 1 # 1 off, 0 on; see bb_loader()
+        self.loader_timeout_end = LOADER_TIMEOUT_DURATION + ticks_us() # Adding the duration delay wasn't validated...
 
         self.loopLengthList = [6500, 2900, 2300, 1800, 1600, 1450,
                                1000] # This last value is for turn speed?
@@ -353,7 +354,7 @@ class NumaMain(object):
             self.turn = True
             self.turn_loops = 20
             self.turn_dir = 1
-            if self.turnleft:
+            if self.turnright:
                 self.turn_dir = -1 # Reverse turn dir here
 
             self.standing = 0
@@ -457,9 +458,9 @@ class NumaMain(object):
                 self.axbus.sync_write(self.leg_ids, ax.GOAL_POSITION,
                         [struct.pack('<H', int(pos)) for pos in
                            (self.gaits.s11pos, self.gaits.s21pos, self.gaits.s31pos, self.gaits.s41pos,
-                            self.gaits.s12pos, self.gaits.s13pos, self.gaits.s14pos, self.gaits.s22pos,
-                            self.gaits.s23pos, self.gaits.s24pos, self.gaits.s32pos, self.gaits.s33pos,
-                            self.gaits.s34pos, self.gaits.s42pos, self.gaits.s43pos, self.gaits.s44pos)])
+                            self.gaits.s12pos, self.gaits.s22pos, self.gaits.s32pos, self.gaits.s42pos,
+                            self.gaits.s13pos, self.gaits.s23pos, self.gaits.s33pos, self.gaits.s43pos,
+                            self.gaits.s14pos, self.gaits.s24pos, self.gaits.s34pos, self.gaits.s44pos)])
         except Exception:
             for cnt, x in enumerate([self.gaits.s11pos, self.gaits.s21pos, self.gaits.s31pos, self.gaits.s41pos,
                             self.gaits.s12pos, self.gaits.s13pos, self.gaits.s14pos, self.gaits.s22pos,
@@ -617,6 +618,7 @@ class NumaMain(object):
 
     def bb_loader(self, loopStart):
         if self.loader_timeout_mode:
+            self.ammoMotor.direct_set_speed(LOADER_SPEED_OFF)
             # TODO bug: wraparound in calculation of loader_timeout_end; reference loopCount
             if loopStart > self.loader_timeout_end:
                 self.loader_timeout_mode = 0
@@ -644,7 +646,10 @@ def main():
     leg_geom, leg1, leg2, leg3, leg4 = gen_numa2_legs()
     gaits = Gaits(leg_geom, leg1, leg2, leg3, leg4)
     x = NumaMain(gaits)
-    sleep_ms(3000)
+    # Safety...
+    x.gunMotor.direct_set_speed(GUN_SPEED_OFF)
+    x.ammoMotor.direct_set_speed(LOADER_SPEED_ON)
+    sleep_ms(2000)
     #input("Waiting... (press enter)")
     #input("Now onwards! (press enter again)")
     try:
