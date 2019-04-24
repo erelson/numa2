@@ -292,7 +292,7 @@ class NumaMain(object):
         self.cmdrAlive = clamp(self.cmdrAlive, 0, CMDR_ALIVE_CNT)
 
         # Get current time in ms
-        ms = (loopStart) / 1000 + self.spdChngOffset
+        ms = (loopStart) / 1000
 
         # We always move the turret to the position specified by the Commander.
         self.axbus.sync_write(self.turret_ids, ax.GOAL_POSITION, [struct.pack('<H', self.pan_pos),
@@ -403,8 +403,9 @@ class NumaMain(object):
 
                 newLoopLength = self.loopLengthList[walkSPD - 1]
                 if newLoopLength != self.loopLength:  # So we can check for change
-                    # Note speedPhaseFix both incr and decrs
-                    self.spdChngOffset += speedPhaseFix(loopStart, self.loopLength, newLoopLength)
+                    # Note speedPhaseFix both incrs and decrs our time tracking variable, `ms`
+                    #self.spdChngOffset += speedPhaseFix(loopStart, self.loopLength, newLoopLength)
+                    self.spdChngOffset = speedPhaseFix(self.spdChngOffset, ms, self.loopLength, newLoopLength)
                     self.loopLength = newLoopLength
                     #self.spdChngOffset = spdChngOffset%loopLength
                 self.walk = True
@@ -420,7 +421,7 @@ class NumaMain(object):
         # -------- Start Leg stuff-------
 
         # the 'now' variables are sawtooth waves (or triangle waves???).
-        now1, now2, now3, now4 = self.get_now(ms)
+        now1, now2, now3, now4 = self.get_now(ms + self.spdChngOffset)
 
         # Above is where the commander input is interpretted.
         #
