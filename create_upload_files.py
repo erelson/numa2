@@ -50,10 +50,12 @@ def main(args):
     if not os.path.isdir("micropy-to-upload"):
         os.mkdir("micropy-to-upload")
 
+    kb_used = 0
     for filename in SOURCES_LIST:
         newfile = os.path.join(OUTPUT_FOLDER, os.path.basename(filename))
         old_hash = get_hash(newfile)
-        write_minified(filename, newfile, not args.full)
+        size_kb = write_minified(filename, newfile, not args.full)
+        kb_used += size_kb
         new_hash = get_hash(newfile)
         if old_hash != new_hash:
             changed_files.append(newfile)
@@ -61,6 +63,7 @@ def main(args):
     newfile = os.path.join(OUTPUT_FOLDER, "boot.py")
     write_minified(BOOT_FILE, newfile, not args.full)
 
+    print("\nFiles will use {0} kb on the pyboard (assumes 1kB blocks)".format(kb_used))
     print("\nThe following files changed:", changed_files)
 
     if not args.write:

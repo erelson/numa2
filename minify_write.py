@@ -5,9 +5,12 @@ try:
 except ImportError:
     HAVE_MNFY = False
 
+import math
+import os
+
 
 def write_minified(infile, outfile, minify=True, readable=False):
-    
+
     print("Turning {0} into {1}...".format(infile, outfile))
 
     try:
@@ -69,5 +72,12 @@ def write_minified(infile, outfile, minify=True, readable=False):
                 if commabuffer:
                     fw.write(commabuffer)
 
+        size_bytes = os.stat(outfile).st_size
+        size_kb = math.ceil(size_bytes / 1024.)
+        bytes_diff = 1024 - size_bytes % 1024
+        print("\t{0:20}\t{1}kb\t({2} free bytes in last block)".format(os.path.basename(outfile) + ":", size_kb, bytes_diff))
+        return size_kb
+
     except SyntaxError as e:
         print("ERROR: Syntax error when minifying {0}".format(infile))
+        return 0
