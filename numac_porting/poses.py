@@ -17,7 +17,7 @@ RAD_TO_ANGLE = 180./pi
 # Send neutral standing positions to all servos.
 def g8Stand(gait, axbus, leg_ids):
     a2 = 45
-    a3 = -120
+    a3 = -125
     a4 = 0
 
     gait.s11pos, gait.s12pos, gait.s13pos, gait.s14pos = \
@@ -44,7 +44,7 @@ def g8Stand(gait, axbus, leg_ids):
 # Send standing positions to all servos. BUT don't rotate legs to center position
 def g8FeetDown(gait, axbus, leg_ids):
     a2 = 45
-    a3 = -120
+    a3 = -125
     a4 = 0
     # Don't send positions to coax servos
     my_leg_ids = leg_ids[4:]
@@ -74,7 +74,7 @@ def g8Flop(gait, axbus, leg_ids):
     # TODO unused
 
     a2 = 45
-    a3 = -120
+    a3 = -125
     a4 = 0
     # TODO I didn't change these yet
     gait.s11pos, gait.s12pos, gait.s13pos, gait.s14pos = \
@@ -103,8 +103,10 @@ def g8Flop(gait, axbus, leg_ids):
 def g8Crouch(gait, axbus, leg_ids):
     my_leg_ids = leg_ids[4:]
 
-    a2 = -90
-    a3 = 110
+    # OLD: These should be same as g8Stand
+    # angles are leg angles
+    a2 = 90
+    a3 = -155
     a4 = 0
     # Don't set positions to coax servos
     my_leg_ids = leg_ids[4:]
@@ -129,7 +131,8 @@ def g8Crouch(gait, axbus, leg_ids):
                         gait.s13pos, gait.s23pos, gait.s33pos, gait.s43pos,
                         gait.s14pos, gait.s24pos, gait.s34pos, gait.s44pos)])
 
-    sleep_ms(200)
+    # Let the servos move
+    sleep_ms(400)
 
     # Disable torque to 2nd servo of each leg
     axbus.sync_write(leg_ids[4:8], ax.TORQUE_ENABLE, [bytearray([0]) for __ in range(4)])
@@ -170,7 +173,7 @@ def g8Crouch(gait, axbus, leg_ids):
 #      |                \        |                        
 #      |                 \_______|1        ___            
 #      |                  2      |_______    |            
-#      |                                     |- bodyH 
+#      |                                     |- bodyH     
 #      |5      TODO mirror this            __|            
 #
 #
@@ -182,15 +185,15 @@ def gen_numa2_legs():
 #   |numa2| 
 #   |_____| 
 # 1/       \2
-    stance = 0
+    stance = 5
     offsets_dict = {
             # Offsets are in degrees
             "aoffset1": 45.0, # this one is special
             "aoffset2": 31.54,
             "aoffset3": 31.54 - 5.63, # off_b - off_h
             "a1stance": stance,
-            "a1stance_rear": stance,
-            "L0": 135, # mm - pretty close to actual...  #TODO or is this supposed to be 135?
+            "a1stance_rear": -10,#5, # degrees
+            "L0": 130,
             "L12": 58,
             "L23": 65, #63,
             "L34": 130, #67,
@@ -286,7 +289,7 @@ class LegDef(object):
             Dictionary with keys 'servoX_type'.
         """
         self.leg_geom = leg_geom
-        self.s1_sign = s1_sign 
+        self.s1_sign = s1_sign
         self.s2_sign = s2_sign
         self.s3_sign = s3_sign
         self.s4_sign = s4_sign

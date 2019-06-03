@@ -108,7 +108,7 @@ TRANSITION_FRAC_TURNING = ALL_FEET_DOWN_TIME_FRAC_TURNING + 0.28
 
 # Leg constants for Numa1
 #defaultbodyH = 150 #130 + 20 # mm  # Numa
-defaultbodyH = 83 # Numa2
+defaultbodyH = 88 # Numa2
 
 #defaultL0 = 105 + 5 # mm - pretty close to actual...
 #defaultL12 = 58
@@ -174,40 +174,14 @@ class Gaits():
         self.s23pos = 0
         self.s33pos = 0
         self.s43pos = 0
-        self.s14pos = 0
-        self.s24pos = 0
-        self.s34pos = 0
-        self.s44pos = 0
+        self.s14pos = 511
+        self.s24pos = 511
+        self.s34pos = 511
+        self.s44pos = 511
 
         self.initTrig()
 
     def initTrig(self):
-        # # See WalkingOmni.nb
-        # Center angles for coax servo of each leg.plus test offsets.
-        # Measured from 0deg = front of bot  --------- this doesn't look right.
-        #/But are the
-        # TODO move these defaults out of here :D
-        #s11A0 = 225
-        #self.s11Aoff = 10
-        #s21A0 = -45 #315 //Hmmm no idea here....
-        #self.s21Aoff = -10
-        #s31A0 = 45
-        #self.s31Aoff = 0
-        #s41A0 = 135
-        #self.s41Aoff = 10
-        # Center angles for each leg.
-        #servo11Ang = pi / 180 * (self.leg1.1A0 + self.leg1.aoffset1) # radians
-        #servo21Ang = pi / 180 * (self.leg2.1A0 + self.leg2.aoffset1)
-        #servo31Ang = pi / 180 * (self.leg3.1A0 + self.leg3.aoffset1)
-        #servo41Ang = pi / 180 * (self.leg4.1A0 + self.leg4.aoffset1)
-        #servo11Ang = pi / 180 * (s11A0 + self.s11Aoff) # radians
-        #servo21Ang = pi / 180 * (s21A0 + self.s21Aoff)
-        #servo31Ang = pi / 180 * (s31A0 + self.s31Aoff)
-        #servo41Ang = pi / 180 * (s41A0 + self.s41Aoff)
-        #servo11Ang = pi / 180 * (self.leg1.sign * self.leg_geom.aoffset1 + self.s11Aoff) # radians
-        #servo21Ang = pi / 180 * (self.leg2.sign * self.leg_geom.aoffset1 + self.s21Aoff)
-        #servo31Ang = pi / 180 * (self.leg3.sign * self.leg_geom.aoffset1 + self.s31Aoff)
-        #servo41Ang = pi / 180 * (self.leg4.sign * self.leg_geom.aoffset1 + self.s41Aoff)
         # We store these sines/cosines of the shoulder servo center angles
         self.cos_servo11Ang = cos(self.leg1.s1_center_angle * pi / 180.)
         self.sin_servo11Ang = sin(self.leg1.s1_center_angle * pi / 180.)
@@ -219,12 +193,8 @@ class Gaits():
         self.sin_servo41Ang = sin(self.leg4.s1_center_angle * pi / 180.)
         return
 
-    # TODO maybe pull servoX1Ang value calcs out of initTrig so we can get them in test
-    # code easily?
-    #def calc_center_angles(self)
 
-
-    def walk_code(self, loopLength, half_loopLength, travRate, double_travRate, now1, now2, now3, now4, ang_dir):
+    def walk_code(self, loopLength, half_loopLength, travRate, double_travRate, now1, now2, now3, now4, ang_dir, curve_dir=0):
         # OPT: self added for jupyter
         # Get height of each pair of feet
         self.footH13 = calc_foot_h(now2, FH, ALL_FEET_DOWN_TIME_FRAC, half_loopLength, TRANSITION_FRAC, FH_FRAC)
@@ -250,11 +220,21 @@ class Gaits():
 
         # trav values are calculated at each time step
         # represent offset of foot position in walking direction from standing point of foot.
-        # travN is vector length in walking direction to offset default foot position by
+        # travN is vector length in walking direction to offset default foot position by.
+        # it's magnitude ranges between +/- travRate
+        # TODO we throw some -1 offsets onto legs 1 and 4... derive why this is...
         self.trav2 = ( double_travRate * (now2 / half_loopLength) ) - travRate
         self.trav3 = ( double_travRate * (now3 / half_loopLength) ) - travRate
-        self.trav4 = ( double_travRate * (now4 / half_loopLength) ) - travRate
-        self.trav1 = ( double_travRate * (now1 / half_loopLength) ) - travRate
+        self.trav4 = -1 * ( (double_travRate * (now4 / half_loopLength) ) - travRate )
+        self.trav1 = -1 * ( (double_travRate * (now1 / half_loopLength) ) - travRate )
+
+        # curve_dir is -1, 0 or 1; Corresponds with sign of walkH from joystick
+        if curve_dir < 0:
+            self.trav2 *= 0.15
+            self.trav3 *= 0.15
+        elif curve_dir > 0:
+            self.trav1 *= 0.15
+            self.trav4 *= 0.15
 
         # Compute sines and cosines of trav#...
         # These are x and y components for offsetting foot position from default foot position.
@@ -279,14 +259,14 @@ class Gaits():
 
         # Calculate coax servo positions as combination of trav vector and default leg position vector
         # Note trav_sdir/cdir -> trav_[sdir|cdir]2 and trav_sdir/cdir[3|4]->trav_[sdir|cdir]3
-        s11ang = atan2(self.L0 * self.sin_servo11Ang + trav_cdir3,
-                          self.L0 * self.cos_servo11Ang + trav_sdir3) - self.leg1.s1_center_radians
+        s11ang = atan2(self.L0 * self.sin_servo11Ang + trav_cdir1,
+                          self.L0 * self.cos_servo11Ang + trav_sdir1) - self.leg1.s1_center_radians
         s21ang = atan2(self.L0 * self.sin_servo21Ang + trav_cdir2,
                           self.L0 * self.cos_servo21Ang + trav_sdir2) - self.leg2.s1_center_radians
         s31ang = atan2(self.L0 * self.sin_servo31Ang + trav_cdir3,
                           self.L0 * self.cos_servo31Ang + trav_sdir3) - self.leg3.s1_center_radians
-        s41ang = atan2(self.L0 * self.sin_servo41Ang + trav_cdir2,
-                          self.L0 * self.cos_servo41Ang + trav_sdir2) - self.leg4.s1_center_radians
+        s41ang = atan2(self.L0 * self.sin_servo41Ang + trav_cdir4,
+                          self.L0 * self.cos_servo41Ang + trav_sdir4) - self.leg4.s1_center_radians
 
         self.s11pos, self.s12pos, self.s13pos, self.s14pos = \
                 self.leg1.get_pos_from_radians(s11ang, s12ang, s13ang, s14ang)
@@ -356,7 +336,7 @@ class Gaits():
 
         # Turning (see turn_code())
         if cos_s1Ang is None and sin_s1Ang is None:
-            legLen = 1.05 * self.L0  # Apparently I'm making the legs stick out a little bit further when turning.
+            legLen = 1.00 * self.L0  # Historicially, I tried scaled this value for turning gait.
         else:
             # Top down x-y plane; lenx and leny form the vector of the leg, from which we get length
             # Note: cos_s1Ang and sin_s1Ang do not change.
