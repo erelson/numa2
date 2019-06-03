@@ -126,6 +126,9 @@ class MockMotorDriver():
     def direct_set_speed(self, *args):
         pass
 
+    def run_forward(self, *args):
+        pass
+
     def run_reversed(self, *args):
         pass
 
@@ -152,7 +155,8 @@ class MockBusToWriteList():
     def sync_write(self, dev_ids, offset, values):
         # The goal of this mock is simply to make the goal position values accessible
         # After they've been calculated ... but then I realized these are positions and not angles
-        if offset != ax.GOAL_POSITION:
+        return  # Skip the below troubleshooting. May break in very special cases, also
+        if offset == ax.GOAL_POSITION:
             self.nvalues = len(values)
             print("hmm", values[1],values[1][0])
             self.values = [struct.unpack("<H", val) for val in values]
