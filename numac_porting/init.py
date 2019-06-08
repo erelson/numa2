@@ -22,28 +22,28 @@ PAN_CENTER = 511 + 153
 
 
 def initServoLims(axbus, _all_ids, gaits):
-    leg1, leg2, leg3, leg4 = gaits.leg1, gaits.leg2, gaits.leg3, gaits.leg4
+    l1, l2, l3, l4 = gaits.leg1, gaits.leg2, gaits.leg3, gaits.leg4
     # Set the limits for motion range on the servos
     # NOTE order does not match leg_ids; we sort `all_ids` to match this order later
     lims = [ # CW        # CCW
-            [leg1.s1max, leg1.s1min],
-            [leg1.s2max, leg1.s2min],
-            [leg1.s3max, leg1.s3min],
-            [leg1.s4max, leg1.s4min],
-            [leg2.s1max, leg2.s1min],
-            [leg2.s2max, leg2.s2min],
-            [leg2.s3max, leg2.s3min],
-            [leg2.s4max, leg2.s4min],
-            [leg3.s1max, leg3.s1min],
-            [leg3.s2max, leg3.s2min],
-            [leg3.s3max, leg3.s3min],
-            [leg3.s4max, leg3.s4min],
-            [leg4.s1max, leg4.s1min],
-            [leg4.s2max, leg4.s2min],
-            [leg4.s3max, leg4.s3min],
-            [leg4.s4max, leg4.s4min],
-            [PAN_CENTER - 4 * (52+30),  PAN_CENTER + 4 * (52+30)], # 51
-            [511 - 4 * 31,              511 + 4 * 65], # 52
+       [l1.s1min, l1.s1max],
+       [l1.s2min, l1.s2max],
+       [l1.s3min, l1.s3max],
+       [l1.s4min, l1.s4max],
+       [l2.s1min, l2.s1max],
+       [l2.s2min, l2.s2max],
+       [l2.s3min, l2.s3max],
+       [l2.s4min, l2.s4max],
+       [l3.s1min, l3.s1max],
+       [l3.s2min, l3.s2max],
+       [l3.s3min, l3.s3max],
+       [l3.s4min, l3.s4max],
+       [l4.s1min, l4.s1max],
+       [l4.s2min, l4.s2max],
+       [l4.s3min, l4.s3max],
+       [l4.s4min, l4.s4max],
+       [PAN_CENTER - 4 * (52+30),  PAN_CENTER + 4 * (52+30)], # 51
+       [511 - 4 * 31,              511 + 4 * 65], # 52
     ]
 
     # sync_write(dev_ids, offset, values):
@@ -57,18 +57,15 @@ def initServoLims(axbus, _all_ids, gaits):
     sleep_ms(25)
 
 
-MY_COAX_SPEED = 200
-MY_SERVO_SPEED = 300
-MY_TURRET_SERVO_SPEED = 200
+COAX_SPEED = 200
+SERVO_SPEED = 300
+TURRET_SERVO_SPEED = 200
 def myServoSpeeds(axbus, leg_ids, turret_ids):
-    axbus.sync_write(leg_ids, ax.MOVING_SPEED, [struct.pack('<H', MY_SERVO_SPEED) for _ in range(len(leg_ids))])
-    #for cnt in range(16):
-    #    ax12SetMOVING_SPEED( (AX12_driver_list[cnt]), MY_SERVO_SPEED)
-    #    sleep_ms(25)
+    axbus.sync_write(leg_ids, ax.MOVING_SPEED, [struct.pack('<H', SERVO_SPEED) for _ in range(len(leg_ids))])
     sleep_ms(25)
-    axbus.sync_write(leg_ids[4:8], ax.MOVING_SPEED, [struct.pack('<H', MY_COAX_SPEED) for _ in range(4)])
+    axbus.sync_write(leg_ids[4:8], ax.MOVING_SPEED, [struct.pack('<H', COAX_SPEED) for _ in range(4)])
     sleep_ms(25)
-    axbus.sync_write(turret_ids, ax.MOVING_SPEED, [struct.pack('<H', MY_TURRET_SERVO_SPEED), struct.pack('<H', MY_TURRET_SERVO_SPEED)])
+    axbus.sync_write(turret_ids, ax.MOVING_SPEED, [struct.pack('<H', TURRET_SERVO_SPEED), struct.pack('<H', TURRET_SERVO_SPEED)])
 
 
 RTN_LVL = 1
