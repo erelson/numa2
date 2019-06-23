@@ -14,6 +14,8 @@ import ax
 
 RAD_TO_ANGLE = 180./pi
 
+# NOTE: All g8 pose funcitons should return a wait time in ms
+
 # Send neutral standing positions to all servos.
 def g8Stand(gait, axbus, leg_ids):
     a2 = 45
@@ -39,7 +41,7 @@ def g8Stand(gait, axbus, leg_ids):
 
     # stop IK and Gait from processing, whichever was active...
     #walk = False
-    return False
+    return 1000
 
 # Send standing positions to all servos. BUT don't rotate legs to center position
 def g8FeetDown(gait, axbus, leg_ids):
@@ -97,7 +99,7 @@ def g8Flop(gait, axbus, leg_ids):
 
     # stop IK and Gait from processing, whichever was active...
     #walk = False
-    return False
+    return 1000
 
 # Lower feet to ground regardless of shoulder servo position, then cut torque to prevent overheating
 def g8Crouch(gait, axbus, leg_ids):
@@ -137,7 +139,7 @@ def g8Crouch(gait, axbus, leg_ids):
     # Disable torque to 2nd servo of each leg
     axbus.sync_write(leg_ids[4:8], ax.TORQUE_ENABLE, [bytearray([0]) for __ in range(4)])
 
-    return
+    return 1000
 
 #  a: default leg position (fixed)
 #  b: walk vector (from controller)
