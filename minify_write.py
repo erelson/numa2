@@ -1,12 +1,19 @@
-# Python3 minify lib that is called 
+# Python3 minify lib that is called
 try:
     import mnfy  # Only supports python3.4, nothing newer; no longer maintained
     HAVE_MNFY = True
 except ImportError:
     HAVE_MNFY = False
 
+try:
+    import pyminifier
+    HAVE_PYMINIFIER = True
+except ImportError:
+    HAVE_PYMINIFIER = False
+
 import math
 import os
+import subprocess
 
 
 def write_minified(infile, outfile, minify=True, readable=False):
@@ -29,9 +36,15 @@ def write_minified(infile, outfile, minify=True, readable=False):
                         continue
                     fw.write(line)
         # Use mnfy lib to minify
+        elif HAVE_PYMINIFIER:
+            print("Using pyminifier library!")
+            # Adapted from mnfy.py
+            subprocess.call("pyminifier -o {0} {1}".format(outfile, infile).split())
+        # Use mnfy lib to minify
         elif HAVE_MNFY:
             print("Using mnfy library!")
             # Adapted from mnfy.py
+
             with open(infile, 'r') as source_file:
                 source = source_file.read()
             import ast

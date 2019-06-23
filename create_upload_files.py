@@ -45,6 +45,8 @@ def get_hash(filepath):
 
 
 def main(args):
+    # We track both changed and generated files
+    out_files = []
     changed_files = []
 
     if not os.path.isdir("micropy-to-upload"):
@@ -57,6 +59,8 @@ def main(args):
         size_kb = write_minified(filename, newfile, not args.full)
         kb_used += size_kb
         new_hash = get_hash(newfile)
+        # track generated/changed files
+        out_files.append(newfile)
         if old_hash != new_hash:
             changed_files.append(newfile)
 
@@ -73,12 +77,20 @@ def main(args):
         print("Target location {0} does not exist. Exiting.".format(args.write_drive))
         return
 
+    wrote_list = []
     # Replace files on pyboard with those we've changed
-    for newfile in changed_files:
+    # Also write any missing files. Otherwise skip overwriting files on PyBoard
+    for newfile in out_files:
         target = os.path.join(args.write_drive, os.path.basename(newfile))
-        if os.path.isfile(target):
+        target_exists = os.path.isfile(target)
+        if target_exists and newfile in changed_files:
             os.remove(target)
-            copyfile(newfile, target)
+        elif target_exists:
+            continue  # don't overwrite; presume same file already is there
+        copyfile(newfile, target)  # file was missing, or we removed it
+        wrote_list.append(newfile)
+
+    print("Wrote the following files to device:", wrote_list)
 
 
 if __name__ == "__main__":
