@@ -201,14 +201,14 @@ class Gaits():
         self.footH24 = calc_foot_h(now3, FH, ALL_FEET_DOWN_TIME_FRAC, half_loopLength, TRANSITION_FRAC, FH_FRAC)
 
         # Now change the now variables so that they track a triangle wave instead of a sawtooth wave
-        if now2 >= half_loopLength:                # Goes from 0ms...5000ms
-            now2 = loopLength - now2            # then 5000ms...0ms
-        if now3 >= half_loopLength:                # Goes from 0ms...5000ms
-            now3 = loopLength - now3            # then 5000ms...0ms
-        if now1 >= half_loopLength:                # Goes from 0ms...5000ms
-            now1 = loopLength - now1            # then 5000ms...0ms
-        if now4 >= half_loopLength:                # Goes from 0ms...5000ms
-            now4 = loopLength - now4            # then 5000ms...0ms
+        if now2 >= half_loopLength:           # Goes from 0ms...5000ms
+            hnow2 = loopLength - now2       # then 5000ms...0ms
+        if now3 >= half_loopLength:
+            hnow3 = loopLength - now3
+        if now1 >= half_loopLength:
+            hnow1 = loopLength - now1
+        if now4 >= half_loopLength:
+            hnow4 = loopLength - now4
 
         #/ ///////////////////
         #/ Now we use the travel direction to calculate leg lengths and coax angles.
@@ -218,7 +218,7 @@ class Gaits():
         cdir = cos(direction)
         sdir = sin(direction)
 
-        # trav values are calculated at each time step
+        # trav values are calculated at each time step. Result is range from -travRate to +travRate
         # represent offset of foot position in walking direction from standing point of foot.
         # travN is vector length in walking direction to offset default foot position by.
         # it's magnitude ranges between +/- travRate
@@ -250,12 +250,12 @@ class Gaits():
         trav_cdir4 = self.trav4 * cdir
         trav_sdir4 = self.trav4 * sdir
 
-    #def doLegKinem(self, myT, leg, trav_cdir, trav_sdir,
+    #def doLegKinem(self, trav_cdir, trav_sdir,
     #         footH, cos_s1Ang=None, sin_s1Ang=None, debug=0):
-        s12ang, s13ang, s14ang = self.doLegKinem(self.leg1, trav_cdir1, trav_sdir1, self.footH13, self.cos_servo11Ang, self.sin_servo11Ang)
-        s22ang, s23ang, s24ang = self.doLegKinem(self.leg2, trav_cdir2, trav_sdir2, self.footH24, self.cos_servo21Ang, self.sin_servo21Ang)
-        s32ang, s33ang, s34ang = self.doLegKinem(self.leg3, trav_cdir3, trav_sdir3, self.footH13, self.cos_servo31Ang, self.sin_servo31Ang)
-        s42ang, s43ang, s44ang = self.doLegKinem(self.leg4, trav_cdir4, trav_sdir4, self.footH24, self.cos_servo41Ang, self.sin_servo41Ang, debug=1)
+        s12ang, s13ang, s14ang = self.doLegKinem(trav_cdir1, trav_sdir1, self.footH13, self.cos_servo11Ang, self.sin_servo11Ang)
+        s22ang, s23ang, s24ang = self.doLegKinem(trav_cdir2, trav_sdir2, self.footH24, self.cos_servo21Ang, self.sin_servo21Ang)
+        s32ang, s33ang, s34ang = self.doLegKinem(trav_cdir3, trav_sdir3, self.footH13, self.cos_servo31Ang, self.sin_servo31Ang)
+        s42ang, s43ang, s44ang = self.doLegKinem(trav_cdir4, trav_sdir4, self.footH24, self.cos_servo41Ang, self.sin_servo41Ang, debug=1)
 
         # Calculate coax servo positions as combination of trav vector and default leg position vector
         # Note trav_sdir/cdir -> trav_[sdir|cdir]2 and trav_sdir/cdir[3|4]->trav_[sdir|cdir]3
@@ -296,24 +296,12 @@ class Gaits():
 
         print("\nfootH13: %d" % (self.footH13), "footH24: %d" % (self.footH24), "now3:", now3, "loopLength:", loopLength, turn_angle13, TURN_ANGLE)
 
-    #   self.doLegKinem( myT, leg, cos_s1Ang, sin_s1Ang, trav_cdir, trav_sdir, footH, debug)
-        #self.s12pos, self.s13pos, self.s14pos = self.doLegKinem(now3, self.leg1, 0, 0, self.footH13)
-        #self.s22pos, self.s23pos, self.s24pos = self.doLegKinem(now2, self.leg2, 0, 0, self.footH24)
-        #self.s32pos, self.s33pos, self.s34pos = self.doLegKinem(now3, self.leg3, 0, 0, self.footH13)
-        #self.s42pos, self.s43pos, self.s44pos = self.doLegKinem(now4, self.leg4, 0, 0, self.footH24, debug=1)
-        s12ang, s13ang, s14ang = self.doLegKinem(self.leg1, 0, 0, self.footH13)
-        s22ang, s23ang, s24ang = self.doLegKinem(self.leg2, 0, 0, self.footH24)
-        s32ang, s33ang, s34ang = self.doLegKinem(self.leg3, 0, 0, self.footH13)
-        s42ang, s43ang, s44ang = self.doLegKinem(self.leg4, 0, 0, self.footH24, debug=1)
+    #   self.doLegKinem(cos_s1Ang, sin_s1Ang, trav_cdir, trav_sdir, footH, debug)
+        s12ang, s13ang, s14ang = self.doLegKinem(0, 0, self.footH13)
+        s22ang, s23ang, s24ang = self.doLegKinem(0, 0, self.footH24)
+        s32ang, s33ang, s34ang = self.doLegKinem(0, 0, self.footH13)
+        s42ang, s43ang, s44ang = self.doLegKinem(0, 0, self.footH24, debug=1)
 
-        #self.s11pos = 511 + ( 45 + self.s11Aoff + turn_dir * TURN_ANGLE*(2*now3/loopLength - 0.5))*1024.0/300.0
-        #self.s21pos = 511 + (-45 + self.s21Aoff + turn_dir * TURN_ANGLE*(2*now2/loopLength - 0.5))*1024.0/300.0
-        #self.s31pos = 511 + ( 45 + self.s31Aoff + turn_dir * TURN_ANGLE*(2*now3/loopLength - 0.5))*1024.0/300.0
-        #self.s41pos = 511 + (-45 + self.s41Aoff + turn_dir * TURN_ANGLE*(2*now2/loopLength - 0.5))*1024.0/300.0
-        #self.s11pos = get_pos_from_radians(turn_dir * turn_angle13)
-        #self.s21pos = get_pos_from_radians(turn_dir * turn_angle24)
-        #self.s31pos = get_pos_from_radians(turn_dir * turn_angle13)
-        #self.s41pos = get_pos_from_radians(turn_dir * turn_angle24)
         s11ang = turn_dir * turn_angle13
         s21ang = turn_dir * turn_angle24
         s31ang = turn_dir * turn_angle13
@@ -331,7 +319,7 @@ class Gaits():
     # Method does a few things depending on whether walking or turning, then invokes rest of IK
     # TODO seems I could split out the calculation of leg length from the calculation of
     # individual segment's relative angles? So far I made the vectors class level for access
-    def doLegKinem(self, leg, trav_cdir, trav_sdir,
+    def doLegKinem(self, trav_cdir, trav_sdir,
              footH, cos_s1Ang=None, sin_s1Ang=None, debug=0):
 
         # Turning (see turn_code())
@@ -399,9 +387,9 @@ class Gaits():
         # ... we instead compare a near right angle and later subtract Pi/2 radians
         v45 = [-1 , 0]
 
-        s2rad, s3rad, s4rad = ((v2d_AngleRadians(self.v12, v23)),
-                               (v2d_AngleRadians(v23, v34)),
-                               (v2d_AngleRadians(v34, v45) - pi/2),)
+        s2rad, s3rad, s4rad = ((v2d_AngleRadians(self.v12, self.v23)),
+                               (v2d_AngleRadians(self.v23, self.v34)),
+                               (v2d_AngleRadians(self.v34, v45) - pi/2),)
 
         if PRINT_DEBUG_IK and debug == 1:
             print("_ %f *%f %f %d *%d %d ", v2d_AngleRadians(v23, self.v12),

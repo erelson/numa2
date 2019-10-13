@@ -175,7 +175,7 @@ class NumaMain(object):
         self.pan_pos = PAN_CENTER
         self.tilt_pos = TILT_CENTER
 
-        # Defaults?
+        # Defaults (currently I never change these)
         trav_rate_default = 25 # distance covered by a stride is twice this
         self.travRate = trav_rate_default
         self.double_travRate = 2 * self.travRate
@@ -497,7 +497,6 @@ class NumaMain(object):
         # Turning with IK
         elif self.turn_loops > 0 and self.walk == False:
             self.gaits.turn_code(self.turn_dir, self.loopLength, self.half_loopLength, now1, now2, now3, now4)
-            #print("%d\t%d\t%d\t%d",s12pos,s42pos, footH13,footH24)
 
         elif self.standing > 0 and self.standing <= 5:
             # or g8Stand?
