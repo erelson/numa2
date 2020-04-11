@@ -1,13 +1,23 @@
-# Python3 minify lib that is called 
+# Python3 minify lib that is called
 try:
-    import mnfy
+    import mnfy  # Only supports python3.4, nothing newer; no longer maintained
     HAVE_MNFY = True
 except ImportError:
     HAVE_MNFY = False
 
+try:
+    import pyminifier
+    HAVE_PYMINIFIER = True
+except ImportError:
+    HAVE_PYMINIFIER = False
+
+import math
+import os
+import subprocess
+
 
 def write_minified(infile, outfile, minify=True, readable=False):
-    
+
     print("Turning {0} into {1}...".format(infile, outfile))
 
     try:
@@ -26,9 +36,15 @@ def write_minified(infile, outfile, minify=True, readable=False):
                         continue
                     fw.write(line)
         # Use mnfy lib to minify
+        elif HAVE_PYMINIFIER:
+            print("Using pyminifier library!")
+            # Adapted from mnfy.py
+            subprocess.call("pyminifier -o {0} {1}".format(outfile, infile).split())
+        # Use mnfy lib to minify
         elif HAVE_MNFY:
             print("Using mnfy library!")
             # Adapted from mnfy.py
+
             with open(infile, 'r') as source_file:
                 source = source_file.read()
             import ast
@@ -54,10 +70,13 @@ def write_minified(infile, outfile, minify=True, readable=False):
                     if commabuffer:
                         commabuffer += line.strip()
                         #if commabuffer[-1] != ",":
-                        if commabuffer[-1] not in "[(,":
+                        if "#" in line or commabuffer[-1] not in "[(,":
                             fw.write(commabuffer + "\n")
                             commabuffer = ""
                     #elif line.rstrip()[-1] == ",":
+                    elif "#" in line:
+                        fw.write(line)
+                        commabuffer = ""
                     elif line.rstrip()[-1] in "[(,":
                         commabuffer = line.rstrip()
                     else:
@@ -66,5 +85,12 @@ def write_minified(infile, outfile, minify=True, readable=False):
                 if commabuffer:
                     fw.write(commabuffer)
 
+        size_bytes = os.stat(outfile).st_size
+        size_kb = math.ceil(size_bytes / 1024.)
+        bytes_diff = 1024 - size_bytes % 1024
+        print("\t{0:20}\t{1}kb\t({2} free bytes in last block)".format(os.path.basename(outfile) + ":", size_kb, bytes_diff))
+        return size_kb
+
     except SyntaxError as e:
         print("ERROR: Syntax error when minifying {0}".format(infile))
+        return 0

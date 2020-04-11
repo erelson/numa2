@@ -54,6 +54,9 @@ class MotorDriver:
 
         self.direct_set_speed(0)
 
+    def run_forward(self):
+        self.directionFactor = 1
+
     def run_reversed(self):
         self.directionFactor = -1
 
@@ -69,14 +72,14 @@ class MotorDriver:
         """
         # TODO clamp speed to max_speed
         # Value from -127 to 127
-        actualSpeed = speed * self.directionFactor
+        self.actualSpeed = speed * self.directionFactor
         # Forward
-        if actualSpeed > 0:
+        if self.actualSpeed > 0:
             self.directionPinA.value(1)
             self.directionPinB.value(0)
-            self.pwm.duty_cycle(actualSpeed/self.max_speed * 100)
+            self.pwm.duty_cycle(self.actualSpeed/self.max_speed * 100)
         # Off
-        elif actualSpeed == 0:
+        elif self.actualSpeed == 0:
             self.directionPinA.value(0)
             self.directionPinB.value(0)
             self.pwm.duty_cycle(0)
@@ -85,20 +88,18 @@ class MotorDriver:
             self.directionPinA.value(0)
             self.directionPinB.value(1)
             # TODO why would negative value have been passed?
-            #self.pwm.duty_cycle(-actualSpeed)
-            self.pwm.duty_cycle(-actualSpeed/self.max_speed * 100)
-        #print("actualSpeed:", actualSpeed, "max:", self.max_speed)
+            self.pwm.duty_cycle(-self.actualSpeed/self.max_speed * 100)
 
         # New compare threshold (?) TODO old from wixel code
         #ticks_on = 0
 
-        #if actualSpeed > 0:
+        #if self.actualSpeed > 0:
         #    #ticks_on = interpolateU(speed, 0, DRIVE_SPEED_MAX, 0, top);
 
         #    # Set direction1 high, direction2 low
         #    self.directionPinA.value(1)
         #    self.directionPinB.value(0)
-        #elif actualSpeed < 0:
+        #elif self.actualSpeed < 0:
         #    #ticks_on = interpolateU(speed, 0, DRIVE_SPEED_MIN, 0, top)
 
         #    # Set direction1 low, direction2 high low
