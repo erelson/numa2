@@ -6,8 +6,9 @@ Numa 2 is built to compete in the Mech Warefare competitions, which originated
 at RoboGames circa 2009.
 
 Code is micropython, which is essentially python3. However, a key source of
-code smells is that this code originally was C++ code that I decided to
-convert to micropython. When inspired, I refactor to improve this...
+code smells is that this code originally was my C++ code for my original Numa,
+and I decided to convert that code to micropython. When inspired, I refactor
+to improve this...
 
 Thanks the the python3 simularity, I wrote my micropython such that key minimal
 portions of hardware interaction code could be easily mocked, letting me run e.g.
@@ -34,8 +35,11 @@ Dependencies:
 -------------
 Written for micropython, which is based on python 3.4 feature set.
 
+For minifying the code, uses `pyminify` (install with pip3).
 
-For minifying the code, uses `mnfy` (install with pip3)
+Previously we used `mnfy` (install with pip3), but this only supports up to
+python3.4. While fine for micropython, it's not runnable on a computer that
+typically has a newer python.
 
 Testing:
 --------
