@@ -31,13 +31,13 @@ if sysname == 'linux' or sysname == 'win32':
     #print(x)
     #sys.exit()
     from mock_hardware import MockMotorDriver as MotorDriver
-    from mock_hardware import MockUART_Port_from_COM as UART_Port
+    from mock_hardware import MockUART_Port_from_COM as Half_duplex_UART_Port
     from mock_hardware import MockBusToQueue as Bus
     BusError = Exception
-    print("UART_PORT is:", UART_Port)
+    print("Half_duplex_UART_PORT is:", Half_duplex_UART_Port)
 
 elif sysname == 'pyboard':
-    from stm_uart_port import UART_Port
+    from stm_uart_port import Half_duplex_UART_Port
     from pyb import Pin, UART, ADC
     from bus import Bus, BusError
     from utime import ticks_us, ticks_diff, sleep_us, sleep_ms
@@ -113,11 +113,11 @@ class NumaMain(object):
         if cmdrbus:
             self.cmdrbus = cmdrbus
         else:
-            self.cmdrbus = UART(1, 38400) #UART_Port(1, 38400)
+            self.cmdrbus = UART(1, 38400)
         if axbus:
             self.axbus = axbus
         else:
-            self.axbus = Bus(UART_Port(2, 1000000))#, show=2)
+            self.axbus = Bus(Half_duplex_UART_Port(2, 1000000))#, show=2)
 
         self.crx = CommanderRx()
         self.cmdrAlive = 0
