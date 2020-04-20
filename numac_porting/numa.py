@@ -689,13 +689,13 @@ class NumaMain(object):
                 self.walkH = 0
                 # Conditionals for four regions of joystick location
                 if turnH > 5:
-                    if crx.walkv > 0:
+                    if self.crx.walkv > 0:
                         self.walkV = min(self.crx.walkv, 80)
                     else:
                         self.walkV = max(self.crx.walkv, -80)
                     self.curve_dir = 1
                 elif turnH < -5:
-                    if urx.walkv > 0:
+                    if self.crx.walkv > 0:
                         self.walkV = min(self.crx.walkv, 80)
                     else:
                         self.walkV = max(self.crx.walkv, -80)
