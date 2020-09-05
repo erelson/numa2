@@ -45,7 +45,7 @@ Testing:
 --------
 Step 1 is always `pyflakes`.
 
-*Testing the IK:* A few jupyter notebooks in `numac_porting/` are set up to
+*Testing the IK:* A few jupyter notebooks in `src/` are set up to
 allow tweaking the leg lengths and plotting the leg geometry as it moves through e.g.
 the walking gait.
 
@@ -61,7 +61,7 @@ Uploading:
 ----------
 Steps:
 
-1. Save everything in `numac_porting`
+1. Save everything in `src`
 2. Run the `create_upload_files.py` to copy just the files needed on robot, and to reduce their size:
    ~~`python3 create_upload_files.py`~~
 3. Using Windows Explorer (? or better?) copy the created files in micropy-to-upload

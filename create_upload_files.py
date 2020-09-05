@@ -8,18 +8,18 @@ from minify_write import write_minified
 from shutil import copyfile
 
 
-BOOT_FILE = "numac_porting/boot.py"
+BOOT_FILE = "src/boot.py"
 
 SOURCES_LIST = [
-        "numac_porting/ax.py",
-        "numac_porting/commander.py",
-        "numac_porting/helpers.py",
-        "numac_porting/init.py",
-        "numac_porting/IK.py",
-        "numac_porting/poses.py",
-        "numac_porting/MotorDriver.py",
-        "numac_porting/numa.py",
-        #"numac_porting/numa2.py",
+        "src/ax.py",
+        "src/commander.py",
+        "src/helpers.py",
+        "src/init.py",
+        "src/IK.py",
+        "src/poses.py",
+        "src/MotorDriver.py",
+        "src/numa.py",
+        #"src/numa2.py",
         "bioloid3/bus.py",
         "bioloid3/device.py",
         "bioloid3/dump_mem.py",
@@ -31,7 +31,7 @@ SOURCES_LIST = [
         "bioloid3/socket_port.py",
         "bioloid3/stm_uart_port.py",
         "bioloid3/stm_usb_port.py",
-        #"numac_porting/vecmath.py",
+        #"src/vecmath.py",
         ]
 
 OUTPUT_FOLDER = "micropy-to-upload"

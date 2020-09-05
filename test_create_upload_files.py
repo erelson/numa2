@@ -9,18 +9,18 @@ from minify_write import write_minified
 BOOT_FILE = "testing/test_iteration_speed_boot.py"
 
 SOURCES_LIST = [
-        #"numac_porting/ax.py",
+        #"src/ax.py",
         #"bioloid3/bus.py",
-        #"numac_porting/commander.py",
+        #"src/commander.py",
         #"bioloid3/device.py",
         #"bioloid3/dump_mem.py",
-        #"numac_porting/helpers.py",
-        #"numac_porting/init.py",
-        "numac_porting/IK.py",
+        #"src/helpers.py",
+        #"src/init.py",
+        "src/IK.py",
         #"bioloid3/log.py",
         "testing/test_iteration_speed.py",
-        #"numac_porting/numa.py",
-        #"numac_porting/numa2.py",
+        #"src/numa.py",
+        #"src/numa2.py",
         #"bioloid3/packet.py",
         #"bioloid3/scan.py",
         #"bioloid3/serial_bus.py",
@@ -28,7 +28,7 @@ SOURCES_LIST = [
         #"bioloid3/socket_port.py",
         #"bioloid3/stm_uart_port.py",
         #"bioloid3/stm_usb_port.py",
-        #"numac_porting/vecmath.py",
+        #"src/vecmath.py",
         ]
 
 OUTPUT_FOLDER = "micropy-to-upload"
