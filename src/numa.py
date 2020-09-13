@@ -4,10 +4,10 @@ import struct
 import sys
 
 # system-type dependent imports
-#sysname = os.uname().sysname
 sysname = sys.platform
+
+# Mocks for non-pyboard use
 if sysname == 'linux' or sysname == 'win32':
-    # Mocks for non-pyboard use
     import time
     def ticks_us():
         return (time.time()%1.e4)*1.e6
@@ -17,7 +17,6 @@ if sysname == 'linux' or sysname == 'win32':
         return time.sleep(x/1.e6)
     def sleep_ms(x):
         return time.sleep(x/1.e3)
-    #Bus = lambda x: x
     from unittest.mock import Mock, MagicMock
     Pin = Mock()
     ADC = Mock()
@@ -42,6 +41,7 @@ elif sysname == 'pyboard':
     from bus import Bus, BusError
     from utime import ticks_us, ticks_diff, sleep_us, sleep_ms
     from MotorDriver import MotorDriver
+    import uros
 
 #
 import ax
@@ -197,6 +197,9 @@ class NumaMain(object):
         self.temps = [0,0,0,0]
         self.temp_read_wait = 1000 # ms
 
+        # TODO what ROS stuff do I need?
+        self.node = None
+
     def zero_all_actions(self):
         #self.g8countdown = 0 # TODO do we also want this when we crouch? do we ever want this?
         self.turn_loops = 0
@@ -235,6 +238,8 @@ class NumaMain(object):
     def app_init_hardware(self):
         #initHardware()
         pass
+        # Initialize rosserial
+        self.node = uros.NodeHandle(4, 115200)
 
     # Initialise the software
     # returns TICK_COUNT, usec
