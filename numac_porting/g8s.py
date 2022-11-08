@@ -1,4 +1,4 @@
-# NOTE This is not used!
+# NOTE This is not used!; see IK.py
 
 
 

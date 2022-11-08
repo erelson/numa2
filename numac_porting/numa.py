@@ -1,9 +1,10 @@
+# Standard library
 from math import pi, sqrt, atan2
 import struct
 #import os
 import sys
 
-# system-type dependent imports
+# System-type dependent imports
 #sysname = os.uname().sysname
 sysname = sys.platform
 if sysname == 'linux' or sysname == 'win32':
@@ -52,22 +53,22 @@ from poses import gen_numa2_legs, g8Stand, g8FeetDown, g8Crouch
 from IK import Gaits
 
 
-#PROG_LOOP_TIME = 19500 # in microseconds
-PROG_LOOP_TIME = 12000 # in microseconds
+#PROG_LOOP_TIME = 19500  # in microseconds
+PROG_LOOP_TIME = 12000  # in microseconds
 
 USE_ONE_SPEED = 0
 THE_ONE_SPEED = 3
 THE_TURN_SPEED = 7
 
 # bitmasks for buttons array
-BUT_R1 = 0x01 # center pan
-BUT_R2 = 0x02 # center pan and tilt
-BUT_R3 = 0x04 # crouch
-BUT_L4 = 0x08 # second switch! slow pan mode + laser on
-BUT_L5 = 0x10 # laser switch (secondary approach for now)
-BUT_L6 = 0x20 # fire gun
-BUT_RT = 0x40 # turn right
-BUT_LT = 0x80 # turn left
+BUT_R1 = 0x01  # center pan
+BUT_R2 = 0x02  # center pan and tilt
+BUT_R3 = 0x04  # crouch
+BUT_L4 = 0x08  # second switch! slow pan mode + laser on
+BUT_L5 = 0x10  # laser switch (secondary approach for now)
+BUT_L6 = 0x20  # fire gun
+BUT_RT = 0x40  # turn right
+BUT_LT = 0x80  # turn left
 
 PRINT_DEBUG = False
 PRINT_DEBUG_COMMANDER = 0
@@ -77,20 +78,20 @@ PRINT_DEBUG_LOOP = False
 PAN_CENTER = 511 + 153
 TILT_CENTER = 511 + 45
 
-LOADER_TIMEOUT_DURATION = 1000000 # microseconds
+LOADER_TIMEOUT_DURATION = 1000000  # microseconds
 LOADER_SPEED_ON = -54  # counterclockwise
 LOADER_SPEED_OFF = 0
 ADC_LOADER_LIMIT = 100
 
-GUN_SPEED_ON = 65 #NOTE: (7.2 / 12.6) * 127 = 72.5714286
+GUN_SPEED_ON = 65  # NOTE: (7.2 / 12.6) * 127 = 72.5714286
 GUN_SPEED_OFF = 0
 #GUNS_FIRING_DURATION = 250000 # us; 1/4 s; burst of ~3 shots
 GUNS_FIRING_DURATION = 80000 # us; 80 ms; better for marksmanship, and works fine in general
 
 PARAM_LASER_PIN = Pin.board.X12
-CMDR_ALIVE_CNT = 30 # ~360 ms
+CMDR_ALIVE_CNT = 30  # Deadman enables after this many loops with no teleop input; ~360 ms
 
-LOOPS_B4_CROUCH = 3 # See crouchCnt
+LOOPS_B4_CROUCH = 3  # See crouchCnt
 
 # Command settings/interpretation variables (ints)
 #currentAnim = 0
@@ -120,7 +121,9 @@ class NumaMain(object):
             self.axbus = Bus(Half_duplex_UART_Port(2, 1000000))#, show=2)
 
         self.crx = CommanderRx()
-        self.cmdrAlive = 0
+        self.cmdrAlive = 0  # Integer countdown of number of loops after data is
+                            # recieved before acting as "disconnected" and various
+                            # "deadman" behavior is triggered. See CMDR_ALIVE_CNT.
 
         self.gaits = gaits
         self.g8countdown = 0  # When this is non-zero, main loop doesn't do any leg commands
@@ -210,7 +213,6 @@ class NumaMain(object):
         oldLoopStart = 0
         print("Starting NUMA loop...")
         while True:
-            #TODO timing? ???
             loopStart = ticks_us()
             #print("------------------------LOOPSTART:", loopStart)
             desired_loop_time = self.app_control(loopStart)
@@ -220,15 +222,15 @@ class NumaMain(object):
                 print("%ld" % (loopStart - oldLoopStart))
             oldLoopStart = loopStart
             makeup_time = desired_loop_time - ticks_diff(loopEnd, loopStart)
+            # Sleep remaining PROG_LOOP_TIME duration or print message if above took longer
             if makeup_time > 0:
                 sleep_us(makeup_time)
             else:
                 print("Slow loop, took:", (PROG_LOOP_TIME - makeup_time) / 1000, "ms (ideal loop time:", PROG_LOOP_TIME/1000, ")")
-                #print("Slow loop, exceeded looptime by:", -1 * makeup_time / 1000, "ms (ideal loop time:", PROG_LOOP_TIME/1000, ")")
-            #sleep_us(PROG_LOOP_TIME - ticks_diff(loopEnd, loopStart))
-            if sysname == 'linux' or sysname == 'win32':
-                #print("Simulation loopstart time:", loopStart, "us", "Uptime:", (loopStart - t0)/1e6)
-                pass
+
+            # Debug
+            #if sysname == 'linux' or sysname == 'win32':
+            #    print("Simulation loopstart time:", loopStart, "us", "Uptime:", (loopStart - t0)/1e6)
 
 
     # Initialise the hardware
@@ -236,10 +238,9 @@ class NumaMain(object):
         #initHardware()
         pass
 
-    # Initialise the software
-    # returns TICK_COUNT, usec
     # TODO this silly loop thing needs to be rewritten
     def app_init_software(self, leg_geom):
+        """Initialise the software"""
         print("It begins....")
 
         # This can be used to set a replacement servo's ID in a pinch
@@ -270,10 +271,15 @@ class NumaMain(object):
     # This is the main loop
     #TICK_COUNT appControl(LOOP_COUNT loopCount, TICK_COUNT loopStart):
     def app_control(self, loopStart):
-        """
+        """Main loop
 
-        loopStart: float
-            Current clock time in microseconds
+        Args:
+            loopStart: float
+                Current clock time in microseconds
+
+        Returns:
+            float?: total loop length in microseconds - currently a constant value
+                PROG_LOOP_TIME.
         """
 
         # Stop IK and g8s from coinciding... make Numa stop in place.
@@ -355,7 +361,9 @@ class NumaMain(object):
             #sleep_ms(10)
 
 
-        # If crouch no longer pressed and were in crouch mode, Exit crouch/panic, enable standing, and re-enable torque to 2nd servo of each leg.
+        # If crouch no longer pressed and we are in crouch mode, Exit
+        # crouch/panic, enable standing, and re-enable torque to 2nd servo of
+        # each leg.
         elif self.crouch:
             self.crouch = False
             self.standing = 0
@@ -366,8 +374,9 @@ class NumaMain(object):
 
         #elif self.crouchCnt:
 
-        #FIRE THE GUNS!!!!!
-        #TODO
+        # FIRE THE GUNS!!!!!
+        # A single press of the gun button will cause the gun motors to be enabled/powered long
+        # enough to do "a shot" (GUNS_FIRING_DURATION) after which they are disabled again.
         # NOTE could also make this conditional on loader_timeout_mode == "running"
         # But (hypothesis) I'm not going to be continually firing for more than a second at a time, so I should
         # have sufficient BBs to feed in via gravity while unjamming occurs.

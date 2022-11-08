@@ -1,11 +1,17 @@
 #! /usr/bin/python3
 
+# Windows-only script to upload a fixed set of source files
+# after minifying the plain text code.
+# Uploading is done by copying files to the attached Pyboard's mounted drive.
+
+# Standard library
 import hashlib
 import os
-
 from argparse import ArgumentParser
-from minify_write import write_minified
 from shutil import copyfile
+
+# Local
+from minify_write import write_minified
 
 
 BOOT_FILE = "numac_porting/boot.py"
@@ -100,7 +106,7 @@ if __name__ == "__main__":
     parser.add_argument("-w", "--write", action="store_true",
                         help="Write changed files to pyboard.")
     parser.add_argument("-d", "--write-drive", action="store", default="T:",
-                        help="Target drive to put files")
+                        help="Target drive to put files. Default: %(default)s")
 
     args = parser.parse_args()
 

@@ -5,10 +5,11 @@ This repos is my code for a 4 legged walking "mech" named Numa2.
 Numa 2 is built to compete in the Mech Warefare competitions, which originated
 at RoboGames circa 2009.
 
-Code is micropython, which is essentially python3. However, a key source of
-code smells is that this code originally was my C++ code for my original Numa,
-and I decided to convert that code to micropython. When inspired, I refactor
-to improve this...
+Code is micropython, which is essentially python3.
+
+However, a key source of code smells in this codebase is that this code
+originally was my C++ code for my original Numa, and I decided to convert that
+code to micropython. When inspired, I refactor to improve this...
 
 Thanks the the python3 simularity, I wrote my micropython such that key minimal
 portions of hardware interaction code could be easily mocked, letting me run e.g.

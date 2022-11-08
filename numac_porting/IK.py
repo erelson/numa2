@@ -1,8 +1,8 @@
+# Standard library
 import sys
 from math import cos, sin, acos, pi, sqrt, atan2, copysign
 
-PRINT_DEBUG_IK = False
-
+# System-type dependent imports
 if (sys.version_info > (3, 0)):
     # Python 3 code in this block
     from array import array
@@ -12,6 +12,9 @@ else:
     # This is a hack
     def array(_atype, data):
         return _array(data)
+
+
+PRINT_DEBUG_IK = False
 
 
 #uint8_t calc_foot_h(int16_t now, uint16_t foot_h_max, float time_down_frac,
